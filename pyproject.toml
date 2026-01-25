@@ -1,0 +1,7 @@
+[project]
+name = "pandora"
+version = "0.1.0"
+description = "Another todo list app zzz"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
