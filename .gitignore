@@ -1,3 +1,7 @@
 *venv
 notes.md
 BackLog/
+*.db
+uv.lock
+__pycache__
+
