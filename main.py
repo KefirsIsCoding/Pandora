@@ -47,8 +47,13 @@ class Pandora:
         root.destroy()
         self.refresh_collections()
 
-    def edit_subtask(self, root, name, progress, status, id, task_id):
-        SubTask.edit(self.db, name, progress, status, id)
+    def edit_subtask(self, root, id, name, progress, status):
+        SubTask.edit(self.db, id, name, progress, status)
+        root.destroy()
+        self.refresh_collections()
+
+    def delete_subtask(self, root, id):
+        SubTask.delete(self.db, id)
         root.destroy()
         self.refresh_collections()
 
@@ -81,12 +86,15 @@ class Pandora:
                 "edit_task": lambda x,y,z: self.edit_task(x,y,z),
                 "delete_task": lambda x,y: self.delete_task(x,y),
                 "create_subtask": lambda x,y,z: self.create_subtask(x,y,z),
+                "edit_subtask":
+                lambda root, name, progress, status, subtask_id: self.edit_subtask(root, name, progress, status, subtask_id),
+                "delete_subtask": lambda root, subtask_id: self.delete_subtask(root, subtask_id)
+
         }
 
         self.collection_view = CollectionView(notebook, collection_callbacks)
         notebook.add(self.collection_view, text="Collections")
         self.selected_collection = None
-        self.selected_task = None
         self.refresh_collections()
         self.root = root 
 
@@ -107,13 +115,11 @@ class Pandora:
 
     @property
     def subtasks(self):
-        if self.selected_task:
-            return [
-                SubTask(id, name, task_id, status, progress) for
-                id, name, status, progress, task_id in
-                SubTask.get_all(self.db)
-            ]
-        return []
+        return [
+            SubTask(id, name, task_id, status, progress) for
+            id, name, status, progress, task_id in
+            SubTask.get_all(self.db)
+        ]
 
 
     def refresh_collections(self):

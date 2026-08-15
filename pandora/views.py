@@ -92,14 +92,11 @@ class CollectionView(ttk.Frame):
         for w in self.task_list_frame.interior.winfo_children():
             w.destroy()
         for t in tasks:
-            item = TaskWidget(self.task_list_frame.interior, t.name, t.id, t.progress, t.status) 
-            item.set_edit_cmd(self.edit_task_dialog)
-            item.set_del_cmd(self.delete_task_dialog)
-            item.set_new_cmd(self.create_subtask_dialog)
-            item.pack(expand=True, fill="x")
+            TaskWidget(self.task_list_frame.interior, t.name, t.id, t.progress, t.status).pack(expand=True, fill="x")
 
     def update_subtasks(self, subtasks, task_id):
         filtered_subtasks = [subtask for subtask in subtasks if subtask.task_id == task_id]
+        subtask_callbacks = {name: function for name, function in self.callbacks.items() if "subtask" in name}
         for w in self.task_list_frame.interior.winfo_children():
             if w.id == task_id:
                 w.set_subtasks(filtered_subtasks)
@@ -163,17 +160,53 @@ class CollectionView(ttk.Frame):
         t.rowconfigure(1, weight=1)
         t.rowconfigure(2, weight=1)
 
-        task_name = StringVar()
-        task_name.set(task.name)
+        subtask_name = StringVar()
         ttk.Label(t, text="Subtask name:").grid(column=0, row=1)
-        ttk.Entry(t, textvariable=task_name).grid(column=1, row=1)
-        ttk.Button(t, text="Ok", command=lambda: self.callbacks["create_subtask"](t, task_name.get(), task.id)).grid(column=2, row=2)
+        ttk.Entry(t, textvariable=subtask_name).grid(column=1, row=1)
+        ttk.Button(t, text="Ok", command=lambda: self.callbacks["create_subtask"](t, subtask_name.get(), task.id)).grid(column=2, row=2)
 
-    def edit_subtask_dialog(self):
-        pass
+    def edit_subtask_dialog(self, subtask):
+        t = Toplevel(self)
+        t.title("Edit a subtask")
+        t.columnconfigure(0, weight=1)
+        t.columnconfigure(1, weight=1)
+        t.columnconfigure(2, weight=1)
 
-    def delete_subtask_dialog(self):
-        pass
+        t.rowconfigure(0, weight=1)
+        t.rowconfigure(1, weight=1)
+        t.rowconfigure(2, weight=1)
+
+        subtask_name = StringVar()
+        subtask_name.set(subtask.name)
+
+        subtask_progress = StringVar()
+        subtask_progress.set(subtask.progress)
+
+        subtask_status = StringVar()
+        subtask_status.set(subtask.status)
+
+        ttk.Label(t, text="Subtask name:").grid(column=0, row=1)
+        ttk.Entry(t, textvariable=subtask_name).grid(column=1, row=1)
+        ttk.Label(t, text="Subtask progress:").grid(column=0, row=2)
+        ttk.Entry(t, textvariable=subtask_progress).grid(column=1, row=2)
+        ttk.Label(t, text="Subtask status:").grid(column=0, row=3)
+        ttk.Entry(t, textvariable=subtask_status).grid(column=1, row=3)
+        ttk.Button(t, text="Ok", command=lambda: self.callbacks["edit_subtask"](
+            t, subtask.id, subtask_name.get(), subtask_progress.get(), subtask_status.get())).grid(column=2, row=4)
+
+    def delete_subtask_dialog(self, subtask):
+        t = Toplevel(self)
+        t.title("Delete this subtask?")
+        t.columnconfigure(0, weight=1)
+        t.columnconfigure(1, weight=1)
+        t.columnconfigure(2, weight=1)
+
+        t.rowconfigure(0, weight=1)
+        t.rowconfigure(1, weight=1)
+        t.rowconfigure(2, weight=1)
+
+        ttk.Label(t, text="Are you sure?").grid(column=0, row=1)
+        ttk.Button(t, text="Ok", command=lambda: self.callbacks["delete_subtask"](t, subtask.id)).grid(column=2, row=2)
 
 
     def __init__(self, parent, callbacks):

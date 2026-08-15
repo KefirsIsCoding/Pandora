@@ -58,6 +58,18 @@ class SubTask:
         db.cursor().execute("INSERT INTO subtask (name, status, progress, task_id) VALUES(?,?,?,?);", (name,status,progress,task_id))
         db.commit()
 
+    def edit(db, id, name, progress, status):
+        db.cursor().execute("""
+            UPDATE subtask SET name = ?, progress = ?, status = ? WHERE id = ?;
+            """,
+            (name,progress,status,id)
+        )
+        db.commit()
+
+    def delete(db, id):
+        db.cursor().execute("DELETE from subtask WHERE id= ?;", (id,))
+        db.commit()
+
     def get_all(db):
         return db.cursor().execute("SELECT * FROM subtask;").fetchall()
 
