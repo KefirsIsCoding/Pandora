@@ -40,6 +40,9 @@ class Task:
         db.cursor().execute("UPDATE task SET name = ? WHERE id = ?", (name, id))
         db.commit()
 
+    def get_all(db):
+        return db.cursor().execute("SELECT * FROM task;").fetchall()
+
     def get_all_in_collection(db, id):
         return db.cursor().execute("SELECT * FROM task WHERE collection_id = ?", (id,)).fetchall()
 
@@ -54,6 +57,9 @@ class SubTask:
     def save(db, name, task_id, status="BACKLOG", progress=None):
         db.cursor().execute("INSERT INTO subtask (name, status, progress, task_id) VALUES(?,?,?,?);", (name,status,progress,task_id))
         db.commit()
+
+    def get_all(db):
+        return db.cursor().execute("SELECT * FROM subtask;").fetchall()
 
     def get_all_in_task(db, id):
         return db.cursor().execute("SELECT id, name, status, progress, task_id FROM subtask WHERE task_id = ?", (id,)).fetchall()
