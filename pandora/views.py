@@ -72,6 +72,12 @@ class CollectionView(ttk.Frame):
         ttk.Label(t, text="Are you sure?").grid(column=0, row=1)
         ttk.Button(t, text="Ok", command=lambda: self.callbacks["delete_collection"](t, collection.id)).grid(column=2, row=2)
 
+    def refresh(self, collections, tasks, subtasks):
+        self.update_collection(collections)
+        self.update_task(tasks)
+        for t in tasks:
+            self.update_subtasks(subtasks, t.id)
+
     def update_collection(self, collections):
         for w in self.collection_list_frame.interior.winfo_children():
             w.destroy()
@@ -95,8 +101,6 @@ class CollectionView(ttk.Frame):
     def update_subtasks(self, subtasks, task_id):
         filtered_subtasks = [subtask for subtask in subtasks if subtask.task_id == task_id]
         for w in self.task_list_frame.interior.winfo_children():
-            print(w.id)
-            print(task_id)
             if w.id == task_id:
                 w.set_subtasks(filtered_subtasks)
 
