@@ -25,7 +25,7 @@ class SqliteDb:
                 status TEXT, 
                 progress TEXT,
                 collection_id INT,
-                FOREIGN KEY (collection_id) REFERENCES collection (id)
+                FOREIGN KEY (collection_id) REFERENCES collection (id) ON DELETE CASCADE
             );
             """
         )
@@ -38,9 +38,12 @@ class SqliteDb:
                 status TEXT,
                 progress TEXT,
                 task_id INT,
-                FOREIGN KEY (task_id) REFERENCES task (id)
+                FOREIGN KEY (task_id) REFERENCES task (id) ON DELETE CASCADE
             );
             """
         )
+        con.commit()
+        # Enables foreign key contraints (On DELETE)
+        con.execute("PRAGMA foreign_keys = 1")
         con.commit()
         return con
