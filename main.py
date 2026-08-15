@@ -8,69 +8,49 @@ class Pandora:
 
     def create_collection(self, root, name):
         Collection.save(self.db, name)
-        self.collections = [Collection(id, name) for id, name in Collection.get_all(self.db)]
         root.destroy()
-        self.collection_view.update_collection(self.collections)
+        self.refresh_collections()
+
 
     def edit_collection(self, root, name, id):
         Collection.edit(self.db, name, id)
-        self.collections = [Collection(id, name) for id, name in Collection.get_all(self.db)]
         root.destroy()
-        self.collection_view.update_collection(self.collections)
+        self.refresh_collections()
 
     def delete_collection(self, root, id):
         Collection.delete(self.db, id)
-        self.collections = [Collection(id, name) for id, name in Collection.get_all(self.db)]
         root.destroy()
-        self.collection_view.update_collection(self.collections)
+        self.refresh_collections()
 
     def open_collection(self, collection):
-        self.active_collection = collection.id
-        self.tasks = [
-                    Task(id, name, status, progress, collection_id) for id, name, status, progress, collection_id in Task.get_all_in_collection(self.db, collection.id)
-        ]
-        self.collection_view.update_task(self.tasks)
+        self.selected_collection = collection.id
+        self.refresh_collections()
 
     def create_task(self, root, name):
-        Task.save(self.db, name, self.active_collection) 
-        self.tasks = [
-            Task(id, name, status, progress, collection_id) for id, name, status, progress, collection_id in Task.get_all_in_collection(self.db, self.active_collection)
-        ]
+        Task.save(self.db, name, self.selected_collection)
         root.destroy()
-        self.collection_view.update_task(self.tasks)
+        self.refresh_collections()
 
     def edit_task(self, root, name, id):
         Task.edit(self.db, name, id)
-        self.tasks = [
-            Task(id, name, status, progress, collection_id) for id, name, status, progress, collection_id in Task.get_all_in_collection(self.db, self.active_collection)
-        ]
         root.destroy()
-        self.collection_view.update_task(self.tasks)
+        self.refresh_collections()
 
     def delete_task(self, root, id):
         Task.delete(self.db, id)
-        self.tasks = [
-            Task(id, name, status, progress, collection_id) for id, name, status, progress, collection_id in Task.get_all_in_collection(self.db, self.active_collection)
-        ]
         root.destroy()
-        self.collection_view.update_task(self.tasks)
+        self.refresh_collections()
 
 
     def create_subtask(self, root, name, task_id):
         SubTask.save(self.db, name, task_id)
-        self.subtasks = [
-            SubTask(id, name, task_id, status, progress) for id, name, status, progress, task_id in SubTask.get_all_in_task(self.db, task_id)
-        ]
         root.destroy()
-        self.collection_view.update_subtasks(self.subtasks, task_id)
+        self.refresh_collections()
 
     def edit_subtask(self, root, name, progress, status, id, task_id):
         SubTask.edit(self.db, name, progress, status, id)
-        self.subtasks = [
-                SubTask(id, name, task_id, status, progress) for id, name, status, progress, task_id in SubTask.get_all_in_task(self.db, task_id)
-        ]
         root.destroy()
-        self.collection_view.update_subtasks(self.subtasks, task_id)
+        self.refresh_collections()
 
         
     def __init__(self):
@@ -105,12 +85,39 @@ class Pandora:
 
         self.collection_view = CollectionView(notebook, collection_callbacks)
         notebook.add(self.collection_view, text="Collections")
-        self.active_collection = None
-        self.collections = [Collection(id, name) for id, name in Collection.get_all(self.db)]
-        self.collection_view.update_collection(self.collections)
-        self.tasks = []
-        self.subtasks = []
+        self.selected_collection = None
+        self.selected_task = None
+        self.refresh_collections()
         self.root = root 
+
+
+    @property
+    def collections(self):
+        return [Collection(id, name) for id, name in Collection.get_all(self.db)]
+
+    @property
+    def tasks(self):
+        if self.selected_collection:
+            return [
+                Task(id, name, status, progress, collection_id) for
+                id, name, status, progress, collection_id in
+                Task.get_all_in_collection(self.db, self.selected_collection)
+            ]
+        return []
+
+    @property
+    def subtasks(self):
+        if self.selected_task:
+            return [
+                SubTask(id, name, task_id, status, progress) for
+                id, name, status, progress, task_id in
+                SubTask.get_all(self.db)
+            ]
+        return []
+
+
+    def refresh_collections(self):
+        self.collection_view.refresh(self.collections, self.tasks, self.subtasks)
 
     def mainloop(self):
         self.root.mainloop()
