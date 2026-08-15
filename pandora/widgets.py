@@ -144,8 +144,6 @@ class TaskWidget(ttk.Frame):
         self.refresh_subtask_list()
 
     def set_subtasks(self, subtasks):
-        print("hellooo")
-        print(subtasks)
         self.subtasks = subtasks
         self.refresh_subtask_list()
     
@@ -159,7 +157,6 @@ class TaskWidget(ttk.Frame):
                 ttk.Label(no_tasks, text="Add some sub-tasks!").grid(sticky=(N,W,E,S))
             else:
                 for t in self.subtasks:
-                    print(t)
                     SubTaskWidget(self.subtask_window.interior, t.name, t.id, t.progress, t.status).grid()
 
     def set_edit_cmd(self, callback):
