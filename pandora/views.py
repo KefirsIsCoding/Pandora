@@ -1,27 +1,41 @@
 from tkinter import *
 from tkinter import ttk
-from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget
+from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget, AgendaItem
+from .consts import Status
 
 class AgendaView(ttk.Frame):
 
-    def update_agenda(self):
-        pass
-    def __init__(self, parent):
+    def refresh(self, agendas):
+        for w in self.agenda_list_frame.interior.winfo_children():
+            w.destroy()
+        for t, st in agendas.items():
+            item = AgendaItem(self.agenda_list_frame.interior, t, st)
+            item.pack(expand=True, fill="x")
+
+    def __init__(self, parent, callbacks):
         super().__init__(parent)
+        self.callbacks = callbacks
+
         self.columnconfigure(0, weight=2)
         self.columnconfigure(1, weight=3)
         self.rowconfigure(0, weight=1)
-
         agenda_list = ttk.LabelFrame(self, text="Agenda list")
         agenda_list.grid(column=0, row=0, sticky=(N,W,E,S))
         agenda_list.columnconfigure(0, weight=1)
         agenda_list.rowconfigure(0, weight=1)
 
-        self.agenda_list_scroll = VerticalScrolledFrame(agenda_list)
-        self.agenda_list_scroll.grid(sticky=(N,W,E,S))
+        self.agenda_list_frame = VerticalScrolledFrame(agenda_list)
+        self.agenda_list_frame.grid(sticky=(N,W,E,S))
 
         calendar_frame = ttk.LabelFrame(self, text="Calendar Soon TM")
         calendar_frame.grid(column=1, row=0, sticky=(N,W,E,S))
+
+    def finish_agenda_task(self, s_id):
+        self.callbacks["finish_task"](s_id)
+
+    def cancel_agenda_task(self, s_id):
+        self.callbacks["cancel_task"](s_id)
+
 
 class CollectionView(ttk.Frame):
 
@@ -190,7 +204,7 @@ class CollectionView(ttk.Frame):
         ttk.Label(t, text="Subtask progress:").grid(column=0, row=2)
         ttk.Entry(t, textvariable=subtask_progress).grid(column=1, row=2)
         ttk.Label(t, text="Subtask status:").grid(column=0, row=3)
-        ttk.Entry(t, textvariable=subtask_status).grid(column=1, row=3)
+        ttk.Combobox(t, textvariable=subtask_status, values=[v.name for v in Status]).grid(column=1, row=3)
         ttk.Button(t, text="Ok", command=lambda: self.callbacks["edit_subtask"](
             t, subtask.id, subtask_name.get(), subtask_progress.get(), subtask_status.get())).grid(column=2, row=4)
 

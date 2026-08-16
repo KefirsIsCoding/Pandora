@@ -1,3 +1,5 @@
+from .consts import Status
+
 class Collection:
     def __init__(self, id, name):
         self.id = id
@@ -30,7 +32,7 @@ class Task:
         self.collection_id = collection_id
         self.subtask = []
 
-    def save(db, name, collection, status="BACKLOG", progress=None):
+    def save(db, name, collection):
         db.cursor().execute("""
             INSERT INTO task (name, status, progress, collection_id) VALUES (?, ?, ?, ?);""",
             (name, status, progress, collection)
@@ -58,17 +60,17 @@ class Task:
         ]
 
 class SubTask:
-    def __init__(self, id, name, task, status="BACKLOG", progress=None):
+    def __init__(self, id, name, task, status=Status.BACKLOG, progress=None):
         self.id = id
         self.name = name
         self.status = status
         self.progress = progress
         self.task_id = task
 
-    def save(db, name, task_id, status="BACKLOG", progress=None):
+    def save(db, name, task_id, status=Status.BACKLOG, progress=None):
         db.cursor().execute("""
             INSERT INTO subtask (name, status, progress, task_id) VALUES(?,?,?,?);""",
-            (name,status,progress,task_id)
+            (name, status.name, progress,task_id)
         )
         db.commit()
 
@@ -78,6 +80,10 @@ class SubTask:
             """,
             (name,progress,status,id)
         )
+        db.commit()
+
+    def set_status(db, id, status):
+        db.cursor().execute("UPDATE subtask SET status = ? WHERE id = ?", (status, id))
         db.commit()
 
     def delete(db, id):
@@ -104,8 +110,12 @@ class Agenda:
         self.tasks = [subt.name for subt in subtasks]
 
     def get_agenda_list(db):
-        return db.cursor().execute("""
-            SELECT task.name, subtask.name
-            FROM task JOIN subtask
-            WHERE task.id=subtask.task_id;
-            """).fetchall()
+        agenda_list = dict()
+        for task_name, subtask_name, subtask_id in db.cursor().execute("""
+            SELECT task.name, subtask.name, subtask.id FROM task JOIN subtask
+            WHERE task.id=subtask.task_id AND subtask.status = ?;""", ("WIP",)).fetchall():
+            if agenda_list.get(task_name):
+                agenda_list[task_name][subtask_id] = subtask_name
+            else:
+                agenda_list[task_name] = {subtask_id : subtask_name}
+        return agenda_list

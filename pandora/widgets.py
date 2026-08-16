@@ -163,11 +163,11 @@ class TaskWidget(ttk.Frame):
         if not self.expanded:
             if not self.subtasks:
                 no_tasks = ttk.Frame(self.subtask_window.interior)
-                no_tasks.grid(sticky=(N,W,E,S))
-                ttk.Label(no_tasks, text="Add some sub-tasks!").grid(sticky=(N,W,E,S))
+                no_tasks.pack()
+                ttk.Label(no_tasks, text="Add some sub-tasks!").pack(expand=True, fill="x")
             else:
                 for t in self.subtasks:
-                    SubTaskWidget(self.subtask_window.interior, t.name, t.id, t.progress, t.status).grid()
+                    SubTaskWidget(self.subtask_window.interior, t.name, t.id, t.progress, t.status).pack(expand=True, fill="x")
 
     def edit_task(self):
         self.edit_bttn.configure(command=self.c_view.edit_task_dialog(self))
@@ -186,3 +186,22 @@ class TaskWidget(ttk.Frame):
             self.subtask_window.grid(column=0, row=1, columnspan=7, sticky=(N,W,E,S))
         self.expanded = not self.expanded
         
+
+class AgendaItem(ttk.Frame):
+    def __init__(self, parent, task_name, subtasks):
+        super().__init__(parent)
+        self.a_view = parent.master.master.master.master
+        ttk.Label(self, text=f"---{task_name}---").pack(anchor=NW)
+        for s_id, name in subtasks.items():
+            sub_frame = ttk.Frame(self)
+            sub_frame.pack(anchor=NW, padx=25, fill="x")
+            sub_frame.columnconfigure(0, weight=5)
+            ttk.Label(sub_frame, text=name).grid(column=0, row=0)
+            ttk.Button(sub_frame, text="Done", command=self.finish_task(s_id)).grid(column=1,row=0)
+            ttk.Button(sub_frame, text="X", command=self.cancel_task(s_id)).grid(column=2,row=0)
+
+    def finish_task(self, s_id):
+        return lambda: self.a_view.finish_agenda_task(s_id)
+
+    def cancel_task(self, s_id):
+        return lambda: self.a_view.cancel_agenda_task(s_id)
