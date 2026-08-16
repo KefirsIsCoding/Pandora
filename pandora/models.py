@@ -30,12 +30,11 @@ class Task:
         self.status = status
         self.progress = progress
         self.collection_id = collection_id
-        self.subtask = []
 
     def save(db, name, collection):
         db.cursor().execute("""
-            INSERT INTO task (name, status, progress, collection_id) VALUES (?, ?, ?, ?);""",
-            (name, status, progress, collection)
+            INSERT INTO task (name, collection_id) VALUES (?, ?);""",
+            (name, collection)
         )
         db.commit()
 
@@ -47,16 +46,55 @@ class Task:
         db.cursor().execute("UPDATE task SET name = ? WHERE id = ?", (name, id))
         db.commit()
 
+    def _resolve_progress(total, done):
+        return f'{done}/{total}' if total else "No subtasks"
+
+    def _resolve_status(total, backlog, wip, done):
+        if wip:
+            return Status.WIP.name
+        elif done == total and total > 0:
+            return Status.DONE.name
+        else:
+            return Status.BACKLOG.name
+
     def get_all(db):
         return [
-            Task(id, name, status, progress, collection_id) for id, name, status, progress, collection_id in
-            db.cursor().execute("SELECT * FROM task;").fetchall()
+            Task(id, name, _resolve_progress(s_c, s_d), _resolve_status(s_c, s_b, s_w, s_d),collection_id)
+            for id, name, s_c, s_b, s_wip, s_d, collection_id in
+            db.cursor().execute("""
+                SELECT
+                    t.id,
+                    t.name,
+                    Count(s.id),
+                    Sum(Iif(s.status = 'BACKLOG',1,0)),
+                    Sum(Iif(s.status = 'WIP',1,0)),
+                    Sum(Iif(s.status = 'DONE',1,0)),
+                    t.collection_id
+                FROM task as t
+                JOIN subtask as s ON s.task_id = t.id
+                GROUP BY t.id
+            """).fetchall() if id
         ]
 
-    def get_all_in_collection(db, id):
+    def get_all_in_collection(db, c_id):
+        """ o_O"""
         return [
-            Task(id, name , status, progress, collection_id) for id, name, status, progress, collection_id in
-            db.cursor().execute("SELECT * FROM task WHERE collection_id = ?", (id,)).fetchall()
+            Task(id, name, Task._resolve_progress(s_c, s_d), Task._resolve_status(s_c, s_b, s_w, s_d),collection_id)
+            for id, name, s_c, s_b, s_w, s_d, collection_id in
+                db.cursor().execute("""
+                SELECT
+                    t.id,
+                    t.name,
+                    Count(s.id),
+                    Sum(Iif(s.status = 'BACKLOG',1,0)),
+                    Sum(Iif(s.status = 'WIP',1,0)),
+                    Sum(Iif(s.status = 'DONE',1,0)),
+                    t.collection_id
+                FROM task as t
+                LEFT JOIN subtask as s ON s.task_id = t.id
+                WHERE t.collection_id = ?
+                GROUP BY t.id
+                """, (c_id,)).fetchall() if id
         ]
 
 class SubTask:
