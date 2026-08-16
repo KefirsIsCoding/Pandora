@@ -1,6 +1,8 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter.constants import *
+from datetime import datetime, timedelta
+from .consts import WeekDays
 
 # Pirated from: https://stackoverflow.com/questions/16188420/tkinter-scrollbar-for-frame
 class VerticalScrolledFrame(ttk.Frame):
@@ -205,3 +207,80 @@ class AgendaItem(ttk.Frame):
 
     def cancel_task(self, s_id):
         return lambda: self.a_view.cancel_agenda_task(s_id)
+
+
+class HoverLabel(ttk.Label):
+    """TODO"""
+    def __init__(self, parent, info, *args, **kw):
+        super().__init__(parent, *args, **kw)
+        self.info = info
+        self.box = None
+        self.bind("<Enter>", lambda x: self.show_info())
+        self.bind("<Leave>", lambda x: self.hide_info())
+
+    def show_info(self):
+        self.box = ttk.Label(self, text=self.info)
+        self.box.grid()
+
+    def hide_info(self):
+        self.box.destroy()
+
+
+class Calendar(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        style = ttk.Style()
+        style.configure("TEntry", background='black')
+        self["style"] = "TEntry"
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+        self.rowconfigure(2, weight=20)
+        cur_time = datetime.now()
+        self.month = cur_time.strftime("%B")
+        self.year = cur_time.strftime("%G")
+        self.first_day = (cur_time - timedelta(cur_time.day-1))
+        d_o_w = ["Mon", "Tue", "Wed", "Thr", "Fri", "Sat", "Sun"]
+        self.info_row = ttk.Frame(self, style="TEntry")
+        self.info_row.grid(row=0, column=0, sticky=(N,W,E,S))
+        self.info_row.columnconfigure(0, weight=1)
+
+        ttk.Label(self.info_row, text=self.month).grid(row=0, column=0, sticky=(N,W,E,S))
+        ttk.Label(self.info_row, text=self.year).grid(row=0, column=1, sticky=(N,W,E,S))
+        ttk.Button(self.info_row, text="<").grid(row=0, column=2, sticky=(N,W,E,S))
+        ttk.Button(self.info_row, text=">").grid(row=0, column=3, sticky=(N,W,E,S))
+        self.month_day_row = ttk.Frame(self)
+        self.month_day_row.grid(row=1, column=0, sticky=(N,W,E,S))
+
+        for i, day in enumerate(d_o_w):
+            self.month_day_row.columnconfigure(i, weight=1)
+            ttk.Label(self.month_day_row, text=day).grid(row=0, column=i, sticky=(N,W,E,S))
+        self.month_view = ttk.Frame(self)
+        self.month_view.grid(row=2, column=0, sticky=(N,W,E,S))
+        self.month_view.columnconfigure(0, weight=1)
+        self.month_view.columnconfigure(1, weight=1)
+        self.month_view.columnconfigure(2, weight=1)
+        self.month_view.columnconfigure(3, weight=1)
+        self.month_view.columnconfigure(4, weight=1)
+        self.month_view.columnconfigure(5, weight=1)
+        self.month_view.columnconfigure(6, weight=1)
+        self.month_view.rowconfigure(0, weight=1)
+        self.month_view.rowconfigure(1, weight=1)
+        self.month_view.rowconfigure(2, weight=1)
+        self.month_view.rowconfigure(3, weight=1)
+        self.month_view.rowconfigure(4, weight=1)
+
+        start = self.first_day - timedelta(days=self.get_first_monday_offset())
+        # 7 days in week * 5 weeks needed to display (Some overlap with previous / next month)
+        for row in range(5):
+            for col in range(7):
+                start = start + timedelta(days=1)
+                ttk.Label(self.month_view, text=start.day).grid(column=col, row=row, sticky=(N,W,E,S))
+        HoverLabel(self, ":)", text="wow").grid()
+
+    def get_first_monday_offset(self):
+        for days in WeekDays:
+            if self.first_day.strftime("%A") == days.value[1]:
+                return days.value[0]
