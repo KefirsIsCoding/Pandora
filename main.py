@@ -1,8 +1,9 @@
 from tkinter import *
 from tkinter import ttk
-from pandora.models import Task, Collection, SubTask
+from pandora.models import Task, Collection, SubTask, Agenda
 from pandora.db import SqliteDb
 from pandora.views import AgendaView, CollectionView
+from pandora.consts import Status
 
 class Pandora:
 
@@ -10,49 +11,71 @@ class Pandora:
         Collection.save(self.db, name)
         root.destroy()
         self.refresh_collections()
-
+        self.refresh_agendas()
 
     def edit_collection(self, root, name, id):
         Collection.edit(self.db, name, id)
         root.destroy()
         self.refresh_collections()
+        self.refresh_agendas()
 
     def delete_collection(self, root, id):
         Collection.delete(self.db, id)
         root.destroy()
         self.refresh_collections()
+        self.refresh_agendas()
 
     def open_collection(self, collection):
         self.selected_collection = collection.id
         self.refresh_collections()
+        self.refresh_agendas()
 
     def create_task(self, root, name):
         Task.save(self.db, name, self.selected_collection)
         root.destroy()
         self.refresh_collections()
+        self.refresh_agendas()
 
     def edit_task(self, root, name, id):
         Task.edit(self.db, name, id)
         root.destroy()
         self.refresh_collections()
+        self.refresh_agendas()
 
     def delete_task(self, root, id):
         Task.delete(self.db, id)
         root.destroy()
         self.refresh_collections()
-
+        self.refresh_agendas()
 
     def create_subtask(self, root, name, task_id):
         SubTask.save(self.db, name, task_id)
         root.destroy()
         self.refresh_collections()
+        self.refresh_agendas()
 
-    def edit_subtask(self, root, name, progress, status, id, task_id):
-        SubTask.edit(self.db, name, progress, status, id)
+    def edit_subtask(self, root, id, name, progress, status):
+        SubTask.edit(self.db, id, name, progress, status)
         root.destroy()
         self.refresh_collections()
+        self.refresh_agendas()
 
-        
+    def delete_subtask(self, root, id):
+        SubTask.delete(self.db, id)
+        root.destroy()
+        self.refresh_collections()
+        self.refresh_agendas()
+
+    def finish_agenda_task(self, s_id):
+        SubTask.set_status(self.db, s_id, Status.DONE.name)
+        self.refresh_collections()
+        self.refresh_agendas()
+
+    def cancel_agenda_task(self, s_id):
+        SubTask.set_status(self.db, s_id, Status.BACKLOG.name)
+        self.refresh_collections()
+        self.refresh_agendas()
+
     def __init__(self):
         self.db = SqliteDb.set_up()
         root = Tk()
@@ -68,8 +91,11 @@ class Pandora:
         
         notebook = ttk.Notebook(mainframe)
         notebook.grid(column=0, row=0, sticky=(N, W, E, S))
-
-        self.agenda_view = AgendaView(notebook)
+        agenda_callbacks = {
+                "finish_task": lambda s_id: self.finish_agenda_task(s_id),
+                "cancel_task": lambda s_id: self.cancel_agenda_task(s_id),
+        }
+        self.agenda_view = AgendaView(notebook, agenda_callbacks)
         notebook.add(self.agenda_view, text="Agenda")
 
         collection_callbacks = {
@@ -81,43 +107,44 @@ class Pandora:
                 "edit_task": lambda x,y,z: self.edit_task(x,y,z),
                 "delete_task": lambda x,y: self.delete_task(x,y),
                 "create_subtask": lambda x,y,z: self.create_subtask(x,y,z),
+                "edit_subtask":
+                lambda root, name, progress, status, subtask_id: self.edit_subtask(root, name, progress, status, subtask_id),
+                "delete_subtask": lambda root, subtask_id: self.delete_subtask(root, subtask_id)
+
         }
 
         self.collection_view = CollectionView(notebook, collection_callbacks)
         notebook.add(self.collection_view, text="Collections")
         self.selected_collection = None
-        self.selected_task = None
         self.refresh_collections()
+        self.refresh_agendas()
         self.root = root 
 
 
     @property
     def collections(self):
-        return [Collection(id, name) for id, name in Collection.get_all(self.db)]
+        return Collection.get_all(self.db)
 
     @property
     def tasks(self):
         if self.selected_collection:
-            return [
-                Task(id, name, status, progress, collection_id) for
-                id, name, status, progress, collection_id in
-                Task.get_all_in_collection(self.db, self.selected_collection)
-            ]
+            return Task.get_all_in_collection(self.db, self.selected_collection)
         return []
 
     @property
     def subtasks(self):
-        if self.selected_task:
-            return [
-                SubTask(id, name, task_id, status, progress) for
-                id, name, status, progress, task_id in
-                SubTask.get_all(self.db)
-            ]
-        return []
+        return SubTask.get_all(self.db)
+
+    @property
+    def agendas(self):
+        return Agenda.get_agenda_list(self.db)
 
 
     def refresh_collections(self):
         self.collection_view.refresh(self.collections, self.tasks, self.subtasks)
+
+    def refresh_agendas(self):
+        self.agenda_view.refresh(self.agendas)
 
     def mainloop(self):
         self.root.mainloop()

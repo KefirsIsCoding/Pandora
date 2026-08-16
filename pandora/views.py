@@ -1,27 +1,41 @@
 from tkinter import *
 from tkinter import ttk
-from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget
+from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget, AgendaItem
+from .consts import Status
 
 class AgendaView(ttk.Frame):
 
-    def update_agenda(self):
-        pass
-    def __init__(self, parent):
+    def refresh(self, agendas):
+        for w in self.agenda_list_frame.interior.winfo_children():
+            w.destroy()
+        for t, st in agendas.items():
+            item = AgendaItem(self.agenda_list_frame.interior, t, st)
+            item.pack(expand=True, fill="x")
+
+    def __init__(self, parent, callbacks):
         super().__init__(parent)
+        self.callbacks = callbacks
+
         self.columnconfigure(0, weight=2)
         self.columnconfigure(1, weight=3)
         self.rowconfigure(0, weight=1)
-
         agenda_list = ttk.LabelFrame(self, text="Agenda list")
         agenda_list.grid(column=0, row=0, sticky=(N,W,E,S))
         agenda_list.columnconfigure(0, weight=1)
         agenda_list.rowconfigure(0, weight=1)
 
-        self.agenda_list_scroll = VerticalScrolledFrame(agenda_list)
-        self.agenda_list_scroll.grid(sticky=(N,W,E,S))
+        self.agenda_list_frame = VerticalScrolledFrame(agenda_list)
+        self.agenda_list_frame.grid(sticky=(N,W,E,S))
 
         calendar_frame = ttk.LabelFrame(self, text="Calendar Soon TM")
         calendar_frame.grid(column=1, row=0, sticky=(N,W,E,S))
+
+    def finish_agenda_task(self, s_id):
+        self.callbacks["finish_task"](s_id)
+
+    def cancel_agenda_task(self, s_id):
+        self.callbacks["cancel_task"](s_id)
+
 
 class CollectionView(ttk.Frame):
 
@@ -92,14 +106,11 @@ class CollectionView(ttk.Frame):
         for w in self.task_list_frame.interior.winfo_children():
             w.destroy()
         for t in tasks:
-            item = TaskWidget(self.task_list_frame.interior, t.name, t.id, t.progress, t.status) 
-            item.set_edit_cmd(self.edit_task_dialog)
-            item.set_del_cmd(self.delete_task_dialog)
-            item.set_new_cmd(self.create_subtask_dialog)
-            item.pack(expand=True, fill="x")
+            TaskWidget(self.task_list_frame.interior, t.name, t.id, t.progress, t.status).pack(expand=True, fill="x")
 
     def update_subtasks(self, subtasks, task_id):
         filtered_subtasks = [subtask for subtask in subtasks if subtask.task_id == task_id]
+        subtask_callbacks = {name: function for name, function in self.callbacks.items() if "subtask" in name}
         for w in self.task_list_frame.interior.winfo_children():
             if w.id == task_id:
                 w.set_subtasks(filtered_subtasks)
@@ -163,17 +174,53 @@ class CollectionView(ttk.Frame):
         t.rowconfigure(1, weight=1)
         t.rowconfigure(2, weight=1)
 
-        task_name = StringVar()
-        task_name.set(task.name)
+        subtask_name = StringVar()
         ttk.Label(t, text="Subtask name:").grid(column=0, row=1)
-        ttk.Entry(t, textvariable=task_name).grid(column=1, row=1)
-        ttk.Button(t, text="Ok", command=lambda: self.callbacks["create_subtask"](t, task_name.get(), task.id)).grid(column=2, row=2)
+        ttk.Entry(t, textvariable=subtask_name).grid(column=1, row=1)
+        ttk.Button(t, text="Ok", command=lambda: self.callbacks["create_subtask"](t, subtask_name.get(), task.id)).grid(column=2, row=2)
 
-    def edit_subtask_dialog(self):
-        pass
+    def edit_subtask_dialog(self, subtask):
+        t = Toplevel(self)
+        t.title("Edit a subtask")
+        t.columnconfigure(0, weight=1)
+        t.columnconfigure(1, weight=1)
+        t.columnconfigure(2, weight=1)
 
-    def delete_subtask_dialog(self):
-        pass
+        t.rowconfigure(0, weight=1)
+        t.rowconfigure(1, weight=1)
+        t.rowconfigure(2, weight=1)
+
+        subtask_name = StringVar()
+        subtask_name.set(subtask.name)
+
+        subtask_progress = StringVar()
+        subtask_progress.set(subtask.progress)
+
+        subtask_status = StringVar()
+        subtask_status.set(subtask.status)
+
+        ttk.Label(t, text="Subtask name:").grid(column=0, row=1)
+        ttk.Entry(t, textvariable=subtask_name).grid(column=1, row=1)
+        ttk.Label(t, text="Subtask progress:").grid(column=0, row=2)
+        ttk.Entry(t, textvariable=subtask_progress).grid(column=1, row=2)
+        ttk.Label(t, text="Subtask status:").grid(column=0, row=3)
+        ttk.Combobox(t, textvariable=subtask_status, values=[v.name for v in Status]).grid(column=1, row=3)
+        ttk.Button(t, text="Ok", command=lambda: self.callbacks["edit_subtask"](
+            t, subtask.id, subtask_name.get(), subtask_progress.get(), subtask_status.get())).grid(column=2, row=4)
+
+    def delete_subtask_dialog(self, subtask):
+        t = Toplevel(self)
+        t.title("Delete this subtask?")
+        t.columnconfigure(0, weight=1)
+        t.columnconfigure(1, weight=1)
+        t.columnconfigure(2, weight=1)
+
+        t.rowconfigure(0, weight=1)
+        t.rowconfigure(1, weight=1)
+        t.rowconfigure(2, weight=1)
+
+        ttk.Label(t, text="Are you sure?").grid(column=0, row=1)
+        ttk.Button(t, text="Ok", command=lambda: self.callbacks["delete_subtask"](t, subtask.id)).grid(column=2, row=2)
 
 
     def __init__(self, parent, callbacks):

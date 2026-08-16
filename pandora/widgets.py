@@ -82,6 +82,8 @@ class SubTaskWidget(ttk.Frame):
         super().__init__(parent)
         self.id = id
         self.name = name
+        self.progress = progress
+        self.status = status
         self["borderwidth"] = 2
         self["relief"] = "raised"
 
@@ -96,16 +98,20 @@ class SubTaskWidget(ttk.Frame):
         ttk.Label(self, text=f"Progress: {progress}").grid(column=1, row=0, sticky=(N,W,E,S))
         ttk.Label(self, text=f"Status: {status}").grid(column=2, row=0, sticky=(N,W,E,S))
 
-        self.edit_bttn = ttk.Button(self, text="Edit")
+        self.edit_bttn = ttk.Button(self, text="Edit", command=self.edit_subtask)
         self.edit_bttn.grid(column=3,row=0, sticky=(N,W,E,S))
-        self.del_bttn = ttk.Button(self, text="X")
+        self.del_bttn = ttk.Button(self, text="X", command=self.delete_subtask)
         self.del_bttn.grid(column=4, row=0, sticky=(N,W,E,S))
 
-    def set_edit_cmd(self, callback):
-        self.edit_bttn.configure(command=lambda : callback(self))
+        # Need to resolve this stuff better
+        self.c_view = self.master.master.master.master.c_view
+
+
+    def edit_subtask(self):
+        self.edit_bttn.configure(command=self.c_view.edit_subtask_dialog(self))
     
-    def set_del_cmd(self, callback):
-        self.del_bttn.configure(command=lambda : callback(self))
+    def delete_subtask(self):
+        self.del_bttn.configure(command=self.c_view.delete_subtask_dialog(self))
 
 
 class TaskWidget(ttk.Frame):
@@ -116,6 +122,10 @@ class TaskWidget(ttk.Frame):
         self.name = name
         self.expanded = False
         self.subtasks = []
+
+
+        # Fix this res later
+        self.c_view = self.master.master.master.master.master
 
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
@@ -131,13 +141,13 @@ class TaskWidget(ttk.Frame):
         ttk.Label(self, text=f"Title: {name}").grid(column=0, row=0, sticky=(N,W,E,S))
         ttk.Label(self, text=f"Progress: {progress}").grid(column=1, row=0, sticky=(N,W,E,S))
         ttk.Label(self, text=f"Status: {status}").grid(column=2, row=0, sticky=(N,W,E,S))
-        self.edit_bttn = ttk.Button(self, text="Edit")
+        self.edit_bttn = ttk.Button(self, text="Edit", command=self.edit_task)
         self.edit_bttn.grid(column=3,row=0, sticky=(N,W,E,S))
-        self.del_bttn = ttk.Button(self, text="X")
+        self.del_bttn = ttk.Button(self, text="X", command=self.delete_task)
         self.del_bttn.grid(column=4, row=0, sticky=(N,W,E,S))
-        self.new_bttn = ttk.Button(self, text="+")
+        self.new_bttn = ttk.Button(self, text="+", command=self.create_subtask)
         self.new_bttn.grid(column=5, row=0, sticky=(N,W,E,S))
-        self.open_bttn = ttk.Button(self, text=">", command=self.set_open_cmd)
+        self.open_bttn = ttk.Button(self, text=">", command=self.open_task_dropdown)
         self.open_bttn.grid(column=6, row=0, sticky=(N,W,E,S))
 
         self.subtask_window = VerticalScrolledFrame(self)
@@ -153,22 +163,22 @@ class TaskWidget(ttk.Frame):
         if not self.expanded:
             if not self.subtasks:
                 no_tasks = ttk.Frame(self.subtask_window.interior)
-                no_tasks.grid(sticky=(N,W,E,S))
-                ttk.Label(no_tasks, text="Add some sub-tasks!").grid(sticky=(N,W,E,S))
+                no_tasks.pack()
+                ttk.Label(no_tasks, text="Add some sub-tasks!").pack(expand=True, fill="x")
             else:
                 for t in self.subtasks:
-                    SubTaskWidget(self.subtask_window.interior, t.name, t.id, t.progress, t.status).grid()
+                    SubTaskWidget(self.subtask_window.interior, t.name, t.id, t.progress, t.status).pack(expand=True, fill="x")
 
-    def set_edit_cmd(self, callback):
-        self.edit_bttn.configure(command=lambda : callback(self))
+    def edit_task(self):
+        self.edit_bttn.configure(command=self.c_view.edit_task_dialog(self))
     
-    def set_del_cmd(self, callback):
-        self.del_bttn.configure(command=lambda : callback(self))
+    def delete_task(self):
+        self.del_bttn.configure(command=self.c_view.delete_task_dialog(self))
 
-    def set_new_cmd(self, callback):
-        self.new_bttn.configure(command=lambda : callback(self))
+    def create_subtask(self):
+        self.new_bttn.configure(command=self.c_view.create_subtask_dialog(self))
 
-    def set_open_cmd(self):
+    def open_task_dropdown(self):
         if self.expanded:
             self.subtask_window.grid_forget()
         else:
@@ -176,3 +186,22 @@ class TaskWidget(ttk.Frame):
             self.subtask_window.grid(column=0, row=1, columnspan=7, sticky=(N,W,E,S))
         self.expanded = not self.expanded
         
+
+class AgendaItem(ttk.Frame):
+    def __init__(self, parent, task_name, subtasks):
+        super().__init__(parent)
+        self.a_view = parent.master.master.master.master
+        ttk.Label(self, text=f"---{task_name}---").pack(anchor=NW)
+        for s_id, name in subtasks.items():
+            sub_frame = ttk.Frame(self)
+            sub_frame.pack(anchor=NW, padx=25, fill="x")
+            sub_frame.columnconfigure(0, weight=5)
+            ttk.Label(sub_frame, text=name).grid(column=0, row=0)
+            ttk.Button(sub_frame, text="Done", command=self.finish_task(s_id)).grid(column=1,row=0)
+            ttk.Button(sub_frame, text="X", command=self.cancel_task(s_id)).grid(column=2,row=0)
+
+    def finish_task(self, s_id):
+        return lambda: self.a_view.finish_agenda_task(s_id)
+
+    def cancel_task(self, s_id):
+        return lambda: self.a_view.cancel_agenda_task(s_id)
