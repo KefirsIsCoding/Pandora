@@ -13,11 +13,13 @@ class Collection:
 
     def delete(db, id):
         db.cursor().execute("""DELETE FROM collection WHERE id = ?""", (id,))
-        # Recursive delete for Tasks and it's subtasks?!
         db.commit()
 
     def get_all(db):
-        return db.cursor().execute("SELECT * FROM collection ORDER BY id").fetchall()
+        return [
+            Collection(id, name) for id, name in
+            db.cursor().execute("SELECT * FROM collection ORDER BY id").fetchall()
+        ]
 
 class Task:
     def __init__(self, id, name, status, progress, collection_id):
@@ -29,7 +31,10 @@ class Task:
         self.subtask = []
 
     def save(db, name, collection, status="BACKLOG", progress=None):
-        db.cursor().execute("INSERT INTO task (name, status, progress, collection_id) VALUES (?, ?, ?, ?);",(name, status, progress, collection))
+        db.cursor().execute("""
+            INSERT INTO task (name, status, progress, collection_id) VALUES (?, ?, ?, ?);""",
+            (name, status, progress, collection)
+        )
         db.commit()
 
     def delete(db, id):
@@ -41,10 +46,16 @@ class Task:
         db.commit()
 
     def get_all(db):
-        return db.cursor().execute("SELECT * FROM task;").fetchall()
+        return [
+            Task(id, name, status, progress, collection_id) for id, name, status, progress, collection_id in
+            db.cursor().execute("SELECT * FROM task;").fetchall()
+        ]
 
     def get_all_in_collection(db, id):
-        return db.cursor().execute("SELECT * FROM task WHERE collection_id = ?", (id,)).fetchall()
+        return [
+            Task(id, name , status, progress, collection_id) for id, name, status, progress, collection_id in
+            db.cursor().execute("SELECT * FROM task WHERE collection_id = ?", (id,)).fetchall()
+        ]
 
 class SubTask:
     def __init__(self, id, name, task, status="BACKLOG", progress=None):
@@ -55,7 +66,10 @@ class SubTask:
         self.task_id = task
 
     def save(db, name, task_id, status="BACKLOG", progress=None):
-        db.cursor().execute("INSERT INTO subtask (name, status, progress, task_id) VALUES(?,?,?,?);", (name,status,progress,task_id))
+        db.cursor().execute("""
+            INSERT INTO subtask (name, status, progress, task_id) VALUES(?,?,?,?);""",
+            (name,status,progress,task_id)
+        )
         db.commit()
 
     def edit(db, id, name, progress, status):
@@ -71,7 +85,27 @@ class SubTask:
         db.commit()
 
     def get_all(db):
-        return db.cursor().execute("SELECT * FROM subtask;").fetchall()
+        return [
+            SubTask(id, name, task_id, status, progress) for id, name, status, progress, task_id in
+            db.cursor().execute("SELECT * FROM subtask;").fetchall()
+        ]
 
     def get_all_in_task(db, id):
-        return db.cursor().execute("SELECT id, name, status, progress, task_id FROM subtask WHERE task_id = ?", (id,)).fetchall()
+        return [
+            SubTask(id, name, task_id, status, progress) for id, name, status, progress, task_id in
+            db.cursor().execute("""
+            SELECT id, name, status, progress, task_id
+            FROM subtask WHERE task_id = ?""", (id,)).fetchall()
+        ]
+
+class Agenda:
+    def __init__(self, task, subtasks):
+        self.title = task.name
+        self.tasks = [subt.name for subt in subtasks]
+
+    def get_agenda_list(db):
+        return db.cursor().execute("""
+            SELECT task.name, subtask.name
+            FROM task JOIN subtask
+            WHERE task.id=subtask.task_id;
+            """).fetchall()

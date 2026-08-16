@@ -1,6 +1,6 @@
 from tkinter import *
 from tkinter import ttk
-from pandora.models import Task, Collection, SubTask
+from pandora.models import Task, Collection, SubTask, Agenda
 from pandora.db import SqliteDb
 from pandora.views import AgendaView, CollectionView
 
@@ -74,6 +74,7 @@ class Pandora:
         notebook = ttk.Notebook(mainframe)
         notebook.grid(column=0, row=0, sticky=(N, W, E, S))
 
+        self.current_agenda = self.agendas
         self.agenda_view = AgendaView(notebook)
         notebook.add(self.agenda_view, text="Agenda")
 
@@ -101,25 +102,21 @@ class Pandora:
 
     @property
     def collections(self):
-        return [Collection(id, name) for id, name in Collection.get_all(self.db)]
+        return Collection.get_all(self.db)
 
     @property
     def tasks(self):
         if self.selected_collection:
-            return [
-                Task(id, name, status, progress, collection_id) for
-                id, name, status, progress, collection_id in
-                Task.get_all_in_collection(self.db, self.selected_collection)
-            ]
+            return Task.get_all_in_collection(self.db, self.selected_collection)
         return []
 
     @property
     def subtasks(self):
-        return [
-            SubTask(id, name, task_id, status, progress) for
-            id, name, status, progress, task_id in
-            SubTask.get_all(self.db)
-        ]
+        return SubTask.get_all(self.db)
+
+    @property
+    def agendas(self):
+        print(Agenda.get_agenda_list(self.db))
 
 
     def refresh_collections(self):
