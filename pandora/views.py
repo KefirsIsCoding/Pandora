@@ -1,6 +1,6 @@
 from tkinter import *
 from tkinter import ttk
-from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget, AgendaItem
+from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget, AgendaItem, Calendar
 from .consts import Status
 
 class AgendaView(ttk.Frame):
@@ -29,6 +29,9 @@ class AgendaView(ttk.Frame):
 
         calendar_frame = ttk.LabelFrame(self, text="Calendar Soon TM")
         calendar_frame.grid(column=1, row=0, sticky=(N,W,E,S))
+        calendar_frame.columnconfigure(0, weight=1)
+        calendar_frame.rowconfigure(0, weight=1)
+        Calendar(calendar_frame).grid(column=0, row=0, sticky=(N,W,E,S))
 
     def finish_agenda_task(self, s_id):
         self.callbacks["finish_task"](s_id)
