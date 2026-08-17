@@ -12,6 +12,7 @@ class AgendaView(ttk.Frame):
         for t, st in self.agendas.items():
             item = AgendaItem(self.agenda_list_frame.interior, t, st)
             item.pack(expand=True, fill="x")
+        self.calendar.refresh(agendas)
 
     def __init__(self, parent, agendas, callbacks):
         super().__init__(parent)
@@ -32,7 +33,8 @@ class AgendaView(ttk.Frame):
         calendar_frame.grid(column=1, row=0, sticky=(N,W,E,S))
         calendar_frame.columnconfigure(0, weight=1)
         calendar_frame.rowconfigure(0, weight=1)
-        Calendar(calendar_frame, self.agendas).grid(column=0, row=0, sticky=(N,W,E,S))
+        self.calendar = Calendar(calendar_frame, self.agendas)
+        self.calendar.grid(column=0, row=0, sticky=(N,W,E,S))
 
     def finish_agenda_task(self, s_id):
         self.callbacks["finish_task"](s_id)

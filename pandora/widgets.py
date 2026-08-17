@@ -286,6 +286,7 @@ class Calendar(ttk.Frame):
 
     def refresh(self, subtasks):
         self.subtask_info = subtasks
+        self.init_date(datetime.now())
         self.draw_month()
 
 
@@ -308,7 +309,7 @@ class Calendar(ttk.Frame):
                             info.append(sub[0])
                         elif sub[2] == "Weekends" and start.strftime("%a") in weekends:
                             info.append(sub[0])
-                        elif sub[2] == "Monthly" and start.day == monthrange(self.date.year, self.date.month):
+                        elif sub[2] == "Monthly" and start.day == monthrange(self.date.year, self.date.month)[1]:
                             info.append(sub[0])
                         elif sub[2] == start.isoformat()[0:10]:
                             info.append(sub[0])
