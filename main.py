@@ -96,7 +96,7 @@ class Pandora:
                 "finish_task": lambda s_id: self.finish_agenda_task(s_id),
                 "cancel_task": lambda s_id: self.cancel_agenda_task(s_id),
         }
-        self.agenda_view = AgendaView(notebook, agenda_callbacks)
+        self.agenda_view = AgendaView(notebook,self.agendas, agenda_callbacks)
         notebook.add(self.agenda_view, text="Agenda")
 
         collection_callbacks = {

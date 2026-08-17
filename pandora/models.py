@@ -151,11 +151,11 @@ class Agenda:
 
     def get_agenda_list(db):
         agenda_list = dict()
-        for task_name, subtask_name, subtask_id in db.cursor().execute("""
-            SELECT task.name, subtask.name, subtask.id FROM task JOIN subtask
+        for task_name, subtask_name, subtask_id, subtask_repeat, subtask_due in db.cursor().execute("""
+            SELECT task.name, subtask.name, subtask.id, subtask.repeat, subtask.date FROM task JOIN subtask
             WHERE task.id=subtask.task_id AND subtask.status = ?;""", ("WIP",)).fetchall():
             if agenda_list.get(task_name):
-                agenda_list[task_name][subtask_id] = subtask_name
+                agenda_list[task_name][subtask_id] = [subtask_name, subtask_repeat, subtask_due]
             else:
-                agenda_list[task_name] = {subtask_id : subtask_name}
+                agenda_list[task_name] = {subtask_id : [subtask_name, subtask_repeat, subtask_due]}
         return agenda_list

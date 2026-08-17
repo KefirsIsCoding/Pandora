@@ -201,13 +201,14 @@ class AgendaItem(ttk.Frame):
         super().__init__(parent)
         self.a_view = parent.master.master.master.master
         ttk.Label(self, text=f"---{task_name}---").pack(anchor=NW)
-        for s_id, name in subtasks.items():
+        for s_id, sub_data in subtasks.items():
             sub_frame = ttk.Frame(self)
             sub_frame.pack(anchor=NW, padx=25, fill="x")
             sub_frame.columnconfigure(0, weight=5)
-            ttk.Label(sub_frame, text=name).grid(column=0, row=0)
-            ttk.Button(sub_frame, text="Done", command=self.finish_task(s_id)).grid(column=1,row=0)
-            ttk.Button(sub_frame, text="X", command=self.cancel_task(s_id)).grid(column=2,row=0)
+            ttk.Label(sub_frame, text=sub_data[0]).grid(column=0, row=0)
+            ttk.Label(sub_frame, text=f"Due: {sub_data[2]}").grid(column=1, row=0)
+            ttk.Button(sub_frame, text="Done", command=self.finish_task(s_id), state="disabled" if sub_data[1] else "enabled").grid(column=2,row=0)
+            ttk.Button(sub_frame, text="X", command=self.cancel_task(s_id)).grid(column=3,row=0)
 
     def finish_task(self, s_id):
         return lambda: self.a_view.finish_agenda_task(s_id)
@@ -227,7 +228,8 @@ class HoverLabel(ttk.Label):
     def show_info(self):
         # TODO: Rewrite this Toplevel is not the solve
         self.box = tk.Toplevel(self)
-        ttk.Label(self.box,text=self.info)
+        for i in self.info:
+            ttk.Label(self.box,text=i).grid()
         self.box.grid()
 
     def hide_info(self):
@@ -237,7 +239,8 @@ class HoverLabel(ttk.Label):
 class Calendar(ttk.Frame):
     def __init__(self, parent, subtask_info):
         super().__init__(parent)
-
+        print(subtask_info)
+        self.subtask_info = subtask_info
         style = ttk.Style()
         style.configure("TEntry", background='black')
         self["style"] = "TEntry"
@@ -281,13 +284,35 @@ class Calendar(ttk.Frame):
         self.month_view.rowconfigure(5, weight=1)
         self.draw_month()
 
+    def refresh(self, subtasks):
+        self.subtask_info = subtasks
+        self.draw_month()
+
+
     def draw_month(self):
         for w in self.month_view.winfo_children():
             w.destroy()
         start = self.first_day - timedelta(days=self.get_first_monday_offset())
+        weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+        weekends = ["Sat", "Sun"]
         for row in range(6):
             for col in range(7):
-                HoverLabel(self.month_view, [], text=start.day).grid(column=col, row=row, sticky=(N,W,E,S))
+                info = []
+                for s in self.subtask_info.values():
+                    for sub in s.values():
+                        # 0 name, 1 repeatable, 2 date
+                        # YandereDev tier code
+                        if sub[2] == "Any":
+                            info.append(sub[0])
+                        elif sub[2] == "Weekdays" and start.strftime("%a") in weekdays:
+                            info.append(sub[0])
+                        elif sub[2] == "Weekends" and start.strftime("%a") in weekends:
+                            info.append(sub[0])
+                        elif sub[2] == "Monthly" and start.day == monthrange(self.date.year, self.date.month):
+                            info.append(sub[0])
+                        elif sub[2] == start.isoformat()[0:10]:
+                            info.append(sub[0])
+                HoverLabel(self.month_view, info, text=start.day).grid(column=col, row=row, sticky=(N,W,E,S))
                 start = start + timedelta(days=1)
 
     def init_date(self, time):
@@ -295,8 +320,6 @@ class Calendar(ttk.Frame):
         self.month = time.strftime("%B")
         self.year = time.strftime("%G")
         self.first_day = (time - timedelta(time.day-1))
-        print(self.first_day)
-
 
     def next_month(self):
         days = monthrange(self.date.year, self.date.month)
