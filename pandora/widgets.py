@@ -81,12 +81,14 @@ class CollectionWidget(ttk.Frame):
         self.open_bttn.configure(command=lambda : callback(self))
 
 class SubTaskWidget(ttk.Frame):
-    def __init__(self, parent, name, id, progress, status):
+    def __init__(self, parent, name, id, progress, status, repeat, date):
         super().__init__(parent)
         self.id = id
         self.name = name
         self.progress = progress
         self.status = status
+        self.repeat = repeat
+        self.date = date
         self["borderwidth"] = 2
         self["relief"] = "raised"
 
@@ -96,15 +98,19 @@ class SubTaskWidget(ttk.Frame):
         self.columnconfigure(2, weight=1)
         self.columnconfigure(3, weight=1)
         self.columnconfigure(4, weight=1)
+        self.columnconfigure(5, weight=1)
+        self.columnconfigure(6, weight=1)
 
         ttk.Label(self, text=f"Title: {name}").grid(column=0, row=0, sticky=(N,W,E,S))
         ttk.Label(self, text=f"Progress: {progress}").grid(column=1, row=0, sticky=(N,W,E,S))
         ttk.Label(self, text=f"Status: {status}").grid(column=2, row=0, sticky=(N,W,E,S))
+        ttk.Label(self, text=f"Repeatable: {bool(repeat)}").grid(column=3, row=0, sticky=(N,W,E,S))
+        ttk.Label(self, text=f"Due: {date}").grid(column=4, row=0, sticky=(N,W,E,S))
 
         self.edit_bttn = ttk.Button(self, text="Edit", command=self.edit_subtask)
-        self.edit_bttn.grid(column=3,row=0, sticky=(N,W,E,S))
+        self.edit_bttn.grid(column=5,row=0, sticky=(N,W,E,S))
         self.del_bttn = ttk.Button(self, text="X", command=self.delete_subtask)
-        self.del_bttn.grid(column=4, row=0, sticky=(N,W,E,S))
+        self.del_bttn.grid(column=6, row=0, sticky=(N,W,E,S))
 
         # Need to resolve this stuff better
         self.c_view = self.master.master.master.master.c_view
@@ -170,7 +176,7 @@ class TaskWidget(ttk.Frame):
                 ttk.Label(no_tasks, text="Add some sub-tasks!").pack(expand=True, fill="x")
             else:
                 for t in self.subtasks:
-                    SubTaskWidget(self.subtask_window.interior, t.name, t.id, t.progress, t.status).pack(expand=True, fill="x")
+                    SubTaskWidget(self.subtask_window.interior, t.name, t.id, t.progress, t.status, t.repeat, t.date).pack(expand=True, fill="x")
 
     def edit_task(self):
         self.edit_bttn.configure(command=self.c_view.edit_task_dialog(self))
@@ -211,7 +217,6 @@ class AgendaItem(ttk.Frame):
 
 
 class HoverLabel(ttk.Label):
-    """TODO"""
     def __init__(self, parent, info, *args, **kw):
         super().__init__(parent, *args, **kw)
         self.info = info
@@ -220,7 +225,9 @@ class HoverLabel(ttk.Label):
         self.bind("<Leave>", lambda x: self.hide_info())
 
     def show_info(self):
-        self.box = ttk.Label(self, text=self.info)
+        # TODO: Rewrite this Toplevel is not the solve
+        self.box = tk.Toplevel(self)
+        ttk.Label(self.box,text=self.info)
         self.box.grid()
 
     def hide_info(self):
@@ -228,7 +235,7 @@ class HoverLabel(ttk.Label):
 
 
 class Calendar(ttk.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, subtask_info):
         super().__init__(parent)
 
         style = ttk.Style()
@@ -271,17 +278,16 @@ class Calendar(ttk.Frame):
         self.month_view.rowconfigure(2, weight=1)
         self.month_view.rowconfigure(3, weight=1)
         self.month_view.rowconfigure(4, weight=1)
+        self.month_view.rowconfigure(5, weight=1)
         self.draw_month()
-
-        HoverLabel(self, ":)", text="wow").grid()
 
     def draw_month(self):
         for w in self.month_view.winfo_children():
             w.destroy()
         start = self.first_day - timedelta(days=self.get_first_monday_offset())
-        for row in range(5):
+        for row in range(6):
             for col in range(7):
-                ttk.Label(self.month_view, text=start.day).grid(column=col, row=row, sticky=(N,W,E,S))
+                HoverLabel(self.month_view, [], text=start.day).grid(column=col, row=row, sticky=(N,W,E,S))
                 start = start + timedelta(days=1)
 
     def init_date(self, time):

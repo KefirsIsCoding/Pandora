@@ -36,6 +36,8 @@ class SqliteDb:
                 status TEXT,
                 progress TEXT,
                 task_id INT,
+                repeat INT,
+                date TEXT,
                 FOREIGN KEY (task_id) REFERENCES task (id) ON DELETE CASCADE
             );
             """

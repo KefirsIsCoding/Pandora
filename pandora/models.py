@@ -98,25 +98,27 @@ class Task:
         ]
 
 class SubTask:
-    def __init__(self, id, name, task, status=Status.BACKLOG, progress=None):
+    def __init__(self, id, name, task, repeat, date, status=Status.BACKLOG, progress=None):
         self.id = id
         self.name = name
         self.status = status
         self.progress = progress
         self.task_id = task
+        self.repeat = repeat
+        self.date = date
 
-    def save(db, name, task_id, status=Status.BACKLOG, progress=None):
+    def save(db, name, task_id, repeat, date, status=Status.BACKLOG, progress=None):
         db.cursor().execute("""
-            INSERT INTO subtask (name, status, progress, task_id) VALUES(?,?,?,?);""",
-            (name, status.name, progress,task_id)
+            INSERT INTO subtask (name, status, progress, task_id, repeat, date) VALUES(?,?,?,?,?,?);""",
+            (name, status.name, progress,task_id, repeat, date)
         )
         db.commit()
 
-    def edit(db, id, name, progress, status):
+    def edit(db, id, name, progress, status, repeat, date):
         db.cursor().execute("""
-            UPDATE subtask SET name = ?, progress = ?, status = ? WHERE id = ?;
+            UPDATE subtask SET name = ?, progress = ?, status = ?, repeat = ?, date = ? WHERE id = ?;
             """,
-            (name,progress,status,id)
+            (name,progress,status,repeat, date, id)
         )
         db.commit()
 
@@ -130,15 +132,15 @@ class SubTask:
 
     def get_all(db):
         return [
-            SubTask(id, name, task_id, status, progress) for id, name, status, progress, task_id in
+            SubTask(id, name, task_id, repeat, date, status, progress) for id, name, status, progress, task_id, repeat, date in
             db.cursor().execute("SELECT * FROM subtask;").fetchall()
         ]
 
     def get_all_in_task(db, id):
         return [
-            SubTask(id, name, task_id, status, progress) for id, name, status, progress, task_id in
+            SubTask(id, name, task_id, repeat, date, status, progress) for id, name, status, progress, task_id,repeat, date in
             db.cursor().execute("""
-            SELECT id, name, status, progress, task_id
+            SELECT id, name, status, progress, task_id, repeat, date
             FROM subtask WHERE task_id = ?""", (id,)).fetchall()
         ]
 
