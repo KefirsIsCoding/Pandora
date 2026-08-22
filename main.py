@@ -55,7 +55,6 @@ class Pandora:
         self.refresh_agendas()
 
     def edit_subtask(self, root, id, name, progress, status, rep, date):
-        print(f"id:{id}, name:{name}, prog:{progress}, st:{status}, rep:{rep}, date:{date}")
         SubTask.edit(self.db, id, name, progress, status, rep, date)
         root.destroy()
         self.refresh_collections()

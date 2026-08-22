@@ -227,19 +227,20 @@ class HoverLabel(ttk.Label):
 
     def show_info(self):
         # TODO: Rewrite this Toplevel is not the solve
-        self.box = tk.Toplevel(self)
-        for i in self.info:
-            ttk.Label(self.box,text=i).grid()
-        self.box.grid()
+        if self.info:
+            self.box = tk.Toplevel(self)
+            for i in self.info:
+                ttk.Label(self.box,text=i).grid()
+            self.box.grid()
 
     def hide_info(self):
-        self.box.destroy()
+        if self.info:
+            self.box.destroy()
 
 
 class Calendar(ttk.Frame):
     def __init__(self, parent, subtask_info):
         super().__init__(parent)
-        print(subtask_info)
         self.subtask_info = subtask_info
         style = ttk.Style()
         style.configure("TEntry", background='black')
