@@ -1,6 +1,9 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter.constants import *
+from datetime import datetime, timedelta
+from calendar import monthrange
+from .consts import WeekDays
 
 # Pirated from: https://stackoverflow.com/questions/16188420/tkinter-scrollbar-for-frame
 class VerticalScrolledFrame(ttk.Frame):
@@ -78,12 +81,14 @@ class CollectionWidget(ttk.Frame):
         self.open_bttn.configure(command=lambda : callback(self))
 
 class SubTaskWidget(ttk.Frame):
-    def __init__(self, parent, name, id, progress, status):
+    def __init__(self, parent, name, id, progress, status, repeat, date):
         super().__init__(parent)
         self.id = id
         self.name = name
         self.progress = progress
         self.status = status
+        self.repeat = repeat
+        self.date = date
         self["borderwidth"] = 2
         self["relief"] = "raised"
 
@@ -93,15 +98,19 @@ class SubTaskWidget(ttk.Frame):
         self.columnconfigure(2, weight=1)
         self.columnconfigure(3, weight=1)
         self.columnconfigure(4, weight=1)
+        self.columnconfigure(5, weight=1)
+        self.columnconfigure(6, weight=1)
 
         ttk.Label(self, text=f"Title: {name}").grid(column=0, row=0, sticky=(N,W,E,S))
         ttk.Label(self, text=f"Progress: {progress}").grid(column=1, row=0, sticky=(N,W,E,S))
         ttk.Label(self, text=f"Status: {status}").grid(column=2, row=0, sticky=(N,W,E,S))
+        ttk.Label(self, text=f"Repeatable: {bool(repeat)}").grid(column=3, row=0, sticky=(N,W,E,S))
+        ttk.Label(self, text=f"Due: {date}").grid(column=4, row=0, sticky=(N,W,E,S))
 
         self.edit_bttn = ttk.Button(self, text="Edit", command=self.edit_subtask)
-        self.edit_bttn.grid(column=3,row=0, sticky=(N,W,E,S))
+        self.edit_bttn.grid(column=5,row=0, sticky=(N,W,E,S))
         self.del_bttn = ttk.Button(self, text="X", command=self.delete_subtask)
-        self.del_bttn.grid(column=4, row=0, sticky=(N,W,E,S))
+        self.del_bttn.grid(column=6, row=0, sticky=(N,W,E,S))
 
         # Need to resolve this stuff better
         self.c_view = self.master.master.master.master.c_view
@@ -167,7 +176,7 @@ class TaskWidget(ttk.Frame):
                 ttk.Label(no_tasks, text="Add some sub-tasks!").pack(expand=True, fill="x")
             else:
                 for t in self.subtasks:
-                    SubTaskWidget(self.subtask_window.interior, t.name, t.id, t.progress, t.status).pack(expand=True, fill="x")
+                    SubTaskWidget(self.subtask_window.interior, t.name, t.id, t.progress, t.status, t.repeat, t.date).pack(expand=True, fill="x")
 
     def edit_task(self):
         self.edit_bttn.configure(command=self.c_view.edit_task_dialog(self))
@@ -192,16 +201,143 @@ class AgendaItem(ttk.Frame):
         super().__init__(parent)
         self.a_view = parent.master.master.master.master
         ttk.Label(self, text=f"---{task_name}---").pack(anchor=NW)
-        for s_id, name in subtasks.items():
+        for s_id, sub_data in subtasks.items():
             sub_frame = ttk.Frame(self)
             sub_frame.pack(anchor=NW, padx=25, fill="x")
             sub_frame.columnconfigure(0, weight=5)
-            ttk.Label(sub_frame, text=name).grid(column=0, row=0)
-            ttk.Button(sub_frame, text="Done", command=self.finish_task(s_id)).grid(column=1,row=0)
-            ttk.Button(sub_frame, text="X", command=self.cancel_task(s_id)).grid(column=2,row=0)
+            ttk.Label(sub_frame, text=sub_data[0]).grid(column=0, row=0)
+            ttk.Label(sub_frame, text=f"Due: {sub_data[2]}").grid(column=1, row=0)
+            ttk.Button(sub_frame, text="Done", command=self.finish_task(s_id), state="disabled" if sub_data[1] else "enabled").grid(column=2,row=0)
+            ttk.Button(sub_frame, text="X", command=self.cancel_task(s_id)).grid(column=3,row=0)
 
     def finish_task(self, s_id):
         return lambda: self.a_view.finish_agenda_task(s_id)
 
     def cancel_task(self, s_id):
         return lambda: self.a_view.cancel_agenda_task(s_id)
+
+
+class HoverLabel(ttk.Label):
+    def __init__(self, parent, info, *args, **kw):
+        super().__init__(parent, *args, **kw)
+        self.info = info
+        self.box = None
+        self.bind("<Enter>", lambda x: self.show_info())
+        self.bind("<Leave>", lambda x: self.hide_info())
+
+    def show_info(self):
+        # TODO: Rewrite this Toplevel is not the solve
+        if self.info:
+            self.box = tk.Toplevel(self)
+            for i in self.info:
+                ttk.Label(self.box,text=i).grid()
+            self.box.grid()
+
+    def hide_info(self):
+        if self.info:
+            self.box.destroy()
+
+
+class Calendar(ttk.Frame):
+    def __init__(self, parent, subtask_info):
+        super().__init__(parent)
+        self.subtask_info = subtask_info
+        style = ttk.Style()
+        style.configure("TEntry", background='black')
+        self["style"] = "TEntry"
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+        self.rowconfigure(2, weight=20)
+        self.init_date(datetime.now())
+        d_o_w = ["Mon", "Tue", "Wed", "Thr", "Fri", "Sat", "Sun"]
+        self.info_row = ttk.Frame(self, style="TEntry")
+        self.info_row.grid(row=0, column=0, sticky=(N,W,E,S))
+        self.info_row.columnconfigure(0, weight=1)
+
+        self.month_label = ttk.Label(self.info_row, text=self.month)
+        self.month_label.grid(row=0, column=0, sticky=(N,W,E,S))
+        self.year_label = ttk.Label(self.info_row, text=self.year)
+        self.year_label.grid(row=0, column=1, sticky=(N,W,E,S))
+        ttk.Button(self.info_row, text="<", command=self.previous_month).grid(row=0, column=2, sticky=(N,W,E,S))
+        ttk.Button(self.info_row, text=">", command=self.next_month).grid(row=0, column=3, sticky=(N,W,E,S))
+        self.month_day_row = ttk.Frame(self)
+        self.month_day_row.grid(row=1, column=0, sticky=(N,W,E,S))
+
+        for i, day in enumerate(d_o_w):
+            self.month_day_row.columnconfigure(i, weight=1)
+            ttk.Label(self.month_day_row, text=day).grid(row=0, column=i, sticky=(N,W,E,S))
+        self.month_view = ttk.Frame(self)
+        self.month_view.grid(row=2, column=0, sticky=(N,W,E,S))
+        self.month_view.columnconfigure(0, weight=1)
+        self.month_view.columnconfigure(1, weight=1)
+        self.month_view.columnconfigure(2, weight=1)
+        self.month_view.columnconfigure(3, weight=1)
+        self.month_view.columnconfigure(4, weight=1)
+        self.month_view.columnconfigure(5, weight=1)
+        self.month_view.columnconfigure(6, weight=1)
+        self.month_view.rowconfigure(0, weight=1)
+        self.month_view.rowconfigure(1, weight=1)
+        self.month_view.rowconfigure(2, weight=1)
+        self.month_view.rowconfigure(3, weight=1)
+        self.month_view.rowconfigure(4, weight=1)
+        self.month_view.rowconfigure(5, weight=1)
+        self.draw_month()
+
+    def refresh(self, subtasks):
+        self.subtask_info = subtasks
+        self.init_date(datetime.now())
+        self.draw_month()
+
+
+    def draw_month(self):
+        for w in self.month_view.winfo_children():
+            w.destroy()
+        start = self.first_day - timedelta(days=self.get_first_monday_offset())
+        weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+        weekends = ["Sat", "Sun"]
+        for row in range(6):
+            for col in range(7):
+                info = []
+                for s in self.subtask_info.values():
+                    for sub in s.values():
+                        # 0 name, 1 repeatable, 2 date
+                        # YandereDev tier code
+                        if sub[2] == "Any":
+                            info.append(sub[0])
+                        elif sub[2] == "Weekdays" and start.strftime("%a") in weekdays:
+                            info.append(sub[0])
+                        elif sub[2] == "Weekends" and start.strftime("%a") in weekends:
+                            info.append(sub[0])
+                        elif sub[2] == "Monthly" and start.day == monthrange(self.date.year, self.date.month)[1]:
+                            info.append(sub[0])
+                        elif sub[2] == start.isoformat()[0:10]:
+                            info.append(sub[0])
+                HoverLabel(self.month_view, info, text=start.day).grid(column=col, row=row, sticky=(N,W,E,S))
+                start = start + timedelta(days=1)
+
+    def init_date(self, time):
+        self.date = time
+        self.month = time.strftime("%B")
+        self.year = time.strftime("%G")
+        self.first_day = (time - timedelta(time.day-1))
+
+    def next_month(self):
+        days = monthrange(self.date.year, self.date.month)
+        self.init_date(self.date + timedelta(days=days[1]))
+        self.month_label["text"] = self.month
+        self.year_label["text"] = self.year
+        self.draw_month()
+
+    def previous_month(self):
+        days = monthrange(self.date.year, self.date.month)
+        self.init_date(self.date - timedelta(days=days[1]))
+        self.month_label.configure(text=self.month)
+        self.year_label.configure(text=self.year)
+        self.draw_month()
+
+    def get_first_monday_offset(self):
+        for days in WeekDays:
+            if self.first_day.strftime("%A") == days.value[1]:
+                return days.value[0]

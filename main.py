@@ -48,14 +48,14 @@ class Pandora:
         self.refresh_collections()
         self.refresh_agendas()
 
-    def create_subtask(self, root, name, task_id):
-        SubTask.save(self.db, name, task_id)
+    def create_subtask(self, root, name, rep, date, task_id):
+        SubTask.save(self.db, name, task_id, rep, date)
         root.destroy()
         self.refresh_collections()
         self.refresh_agendas()
 
-    def edit_subtask(self, root, id, name, progress, status):
-        SubTask.edit(self.db, id, name, progress, status)
+    def edit_subtask(self, root, id, name, progress, status, rep, date):
+        SubTask.edit(self.db, id, name, progress, status, rep, date)
         root.destroy()
         self.refresh_collections()
         self.refresh_agendas()
@@ -95,7 +95,7 @@ class Pandora:
                 "finish_task": lambda s_id: self.finish_agenda_task(s_id),
                 "cancel_task": lambda s_id: self.cancel_agenda_task(s_id),
         }
-        self.agenda_view = AgendaView(notebook, agenda_callbacks)
+        self.agenda_view = AgendaView(notebook,self.agendas, agenda_callbacks)
         notebook.add(self.agenda_view, text="Agenda")
 
         collection_callbacks = {
@@ -106,9 +106,9 @@ class Pandora:
                 "create_task" : lambda x,y: self.create_task(x,y),
                 "edit_task": lambda x,y,z: self.edit_task(x,y,z),
                 "delete_task": lambda x,y: self.delete_task(x,y),
-                "create_subtask": lambda x,y,z: self.create_subtask(x,y,z),
+                "create_subtask": lambda root, name, rep, date, t_id: self.create_subtask(root, name, rep, date, t_id),
                 "edit_subtask":
-                lambda root, name, progress, status, subtask_id: self.edit_subtask(root, name, progress, status, subtask_id),
+                lambda root, s_id, name, progress, status, rep, date: self.edit_subtask(root, s_id, name, progress, status, rep, date),
                 "delete_subtask": lambda root, subtask_id: self.delete_subtask(root, subtask_id)
 
         }

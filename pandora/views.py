@@ -1,21 +1,23 @@
 from tkinter import *
 from tkinter import ttk
-from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget, AgendaItem
+from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget, AgendaItem, Calendar
 from .consts import Status
 
 class AgendaView(ttk.Frame):
 
     def refresh(self, agendas):
+        self.agendas = agendas
         for w in self.agenda_list_frame.interior.winfo_children():
             w.destroy()
-        for t, st in agendas.items():
+        for t, st in self.agendas.items():
             item = AgendaItem(self.agenda_list_frame.interior, t, st)
             item.pack(expand=True, fill="x")
+        self.calendar.refresh(agendas)
 
-    def __init__(self, parent, callbacks):
+    def __init__(self, parent, agendas, callbacks):
         super().__init__(parent)
         self.callbacks = callbacks
-
+        self.agendas = agendas
         self.columnconfigure(0, weight=2)
         self.columnconfigure(1, weight=3)
         self.rowconfigure(0, weight=1)
@@ -27,8 +29,12 @@ class AgendaView(ttk.Frame):
         self.agenda_list_frame = VerticalScrolledFrame(agenda_list)
         self.agenda_list_frame.grid(sticky=(N,W,E,S))
 
-        calendar_frame = ttk.LabelFrame(self, text="Calendar Soon TM")
+        calendar_frame = ttk.LabelFrame(self, text="Calendar")
         calendar_frame.grid(column=1, row=0, sticky=(N,W,E,S))
+        calendar_frame.columnconfigure(0, weight=1)
+        calendar_frame.rowconfigure(0, weight=1)
+        self.calendar = Calendar(calendar_frame, self.agendas)
+        self.calendar.grid(column=0, row=0, sticky=(N,W,E,S))
 
     def finish_agenda_task(self, s_id):
         self.callbacks["finish_task"](s_id)
@@ -175,9 +181,37 @@ class CollectionView(ttk.Frame):
         t.rowconfigure(2, weight=1)
 
         subtask_name = StringVar()
+        subtask_rep = BooleanVar(value=False)
+        subtask_date_type = StringVar(value="Any")
+        subtask_date_specific = StringVar()
+        combox_vals = ["Any", "Weekends", "Weekdays", "Monthly", "Specific Date"]
+        from datetime import datetime, timedelta
+        dates = [x.isoformat()[0:10] for x in (datetime.now() + timedelta(days=i) for i in range(365))]
+
+
+        def change_box(s_type, date_w):
+            if s_type == "Specific Date":
+                date_w.configure(state="enabled")
+            else:
+                date_w.configure(state="disabled")
+
         ttk.Label(t, text="Subtask name:").grid(column=0, row=1)
         ttk.Entry(t, textvariable=subtask_name).grid(column=1, row=1)
-        ttk.Button(t, text="Ok", command=lambda: self.callbacks["create_subtask"](t, subtask_name.get(), task.id)).grid(column=2, row=2)
+        ttk.Label(t, text="Repeatable:").grid(column=0, row=2)
+        ttk.Checkbutton(t, variable=subtask_rep, onvalue=True, offvalue=False).grid(column=1, row=2)
+        ttk.Label(t, text="Due:").grid(column=0, row=3)
+        d_type_select = ttk.Combobox(t, textvariable=subtask_date_type, values=combox_vals)
+        d_type_select.grid(column=1, row=3)
+        date_select = ttk.Combobox(t, textvariable=subtask_date_specific, state="disabled", values=dates)
+        date_select.grid(column=1, row=4)
+        d_type_select.bind("<<ComboboxSelected>>", lambda x: change_box(subtask_date_type.get(), date_select))
+        ttk.Button(t, text="Ok", command=lambda: 
+            self.callbacks["create_subtask"](
+                t,
+                subtask_name.get(), 
+                subtask_rep.get(), 
+                subtask_date_type.get() if subtask_date_type.get() != "Specific Date" else subtask_date_specific.get(), 
+                task.id)).grid(column=2, row=5)
 
     def edit_subtask_dialog(self, subtask):
         t = Toplevel(self)
@@ -199,14 +233,52 @@ class CollectionView(ttk.Frame):
         subtask_status = StringVar()
         subtask_status.set(subtask.status)
 
+        subtask_rep = BooleanVar()
+        subtask_rep.set(subtask.repeat)
+
+        combox_vals = ["Any", "Weekends", "Weekdays", "Monthly", "Specific Date"]
+        subtask_date_type = StringVar()
+        subtask_date_specific = StringVar()
+        from datetime import datetime, timedelta
+        dates = [x.isoformat()[0:10] for x in (datetime.now() + timedelta(days=i) for i in range(365))]
+
+
+        def change_box(s_type, date_w):
+            if s_type == "Specific Date":
+                date_w.configure(state="enabled")
+            else:
+                date_w.configure(state="disabled")
+
         ttk.Label(t, text="Subtask name:").grid(column=0, row=1)
         ttk.Entry(t, textvariable=subtask_name).grid(column=1, row=1)
         ttk.Label(t, text="Subtask progress:").grid(column=0, row=2)
         ttk.Entry(t, textvariable=subtask_progress).grid(column=1, row=2)
         ttk.Label(t, text="Subtask status:").grid(column=0, row=3)
         ttk.Combobox(t, textvariable=subtask_status, values=[v.name for v in Status]).grid(column=1, row=3)
+        ttk.Label(t, text="Repeatable:").grid(column=0, row=4)
+        ttk.Checkbutton(t, variable=subtask_rep, onvalue=True, offvalue=False).grid(column=1, row=4)
+        ttk.Label(t, text="Due date:").grid(column=0, row=5)
+        d_type_select = ttk.Combobox(t, textvariable=subtask_date_type, values=combox_vals)
+        d_type_select.grid(column=1, row=5)
+        date_select = ttk.Combobox(t, textvariable=subtask_date_specific, values=dates)
+        date_select.grid(column=1, row=6)
+        d_type_select.bind("<<ComboboxSelected>>", lambda x: change_box(subtask_date_type.get(), date_select))
+        if subtask.date in combox_vals:
+            subtask_date_type.set(subtask.date)
+            date_select.configure(state="disabled")
+        else:
+            subtask_date_type.set("Specific Date")
+            subtask_date_specific.set(subtask.date)
+
         ttk.Button(t, text="Ok", command=lambda: self.callbacks["edit_subtask"](
-            t, subtask.id, subtask_name.get(), subtask_progress.get(), subtask_status.get())).grid(column=2, row=4)
+            t,
+            subtask.id,
+            subtask_name.get(),
+            subtask_progress.get(),
+            subtask_status.get(),
+            subtask_rep.get(),
+            subtask_date_type.get() if subtask_date_type.get() != "Specific Date" else subtask_date_specific.get()
+            )).grid(column=2, row=7)
 
     def delete_subtask_dialog(self, subtask):
         t = Toplevel(self)

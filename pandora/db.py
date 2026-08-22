@@ -22,8 +22,6 @@ class SqliteDb:
             (
                 id INTEGER PRIMARY KEY,
                 name TEXT, 
-                status TEXT, 
-                progress TEXT,
                 collection_id INT,
                 FOREIGN KEY (collection_id) REFERENCES collection (id) ON DELETE CASCADE
             );
@@ -38,6 +36,8 @@ class SqliteDb:
                 status TEXT,
                 progress TEXT,
                 task_id INT,
+                repeat INT,
+                date TEXT,
                 FOREIGN KEY (task_id) REFERENCES task (id) ON DELETE CASCADE
             );
             """
