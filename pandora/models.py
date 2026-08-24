@@ -24,12 +24,13 @@ class Collection:
         ]
 
 class Task:
-    def __init__(self, id, name, status, progress, collection_id):
+    def __init__(self, id, name, status, progress, collection_id, fields):
         self.id = id
         self.name = name
         self.status = status
         self.progress = progress
         self.collection_id = collection_id
+        self.custom_fields = fields
 
     def save(db, name, collection):
         db.cursor().execute("""
@@ -42,9 +43,29 @@ class Task:
         db.cursor().execute("DELETE FROM task WHERE id =?", (id,))
         db.commit()
 
-    def edit(db, name, id):
+    def edit(db, name, id, fields):
         db.cursor().execute("UPDATE task SET name = ? WHERE id = ?", (name, id))
         db.commit()
+        task_fields = CustomFields.get_task_fields(db, id)
+        new_fields = [(x.get("id", None), x.get("name").get(), x.get("value").get()) for x in fields.values()]
+        is_full = len(task_fields) == 3
+        ### Del
+        for tf in task_fields:
+
+            if tf.id not in [b[0] for b in new_fields]:
+                CustomFields.delete(db, tf.id)
+        for values in fields.values():
+            # Wipe if exists
+            if id_val := values.get("id"):
+                db.cursor().execute("""
+                    UPDATE customfields SET name = ?, value = ? WHERE id = ?
+                """, (values.get("name").get(), values.get("value").get(), values.get("id")))
+                db.commit()
+            else:
+                db.cursor().execute("""
+                    INSERT INTO customfields (name, value, task_id) VALUES (?, ?, ?);
+                """, (values.get("name").get(), values.get("value").get(), id))
+                db.commit()
 
     def _resolve_progress(total, done):
         return f'{done}/{total}' if total else "No subtasks"
@@ -69,17 +90,22 @@ class Task:
                     Sum(Iif(s.status = 'BACKLOG',1,0)),
                     Sum(Iif(s.status = 'WIP',1,0)),
                     Sum(Iif(s.status = 'DONE',1,0)),
-                    t.collection_id
+                    t.collection_id,
+                    c.id,
+                    c.name,
+                    c.value
                 FROM task as t
                 JOIN subtask as s ON s.task_id = t.id
+                JOIN customfields as c ON c.task_id = t.id
                 GROUP BY t.id
             """).fetchall() if id
         ]
 
     def get_all_in_collection(db, c_id):
         """ o_O"""
+
         return [
-            Task(id, name, Task._resolve_progress(s_c, s_d), Task._resolve_status(s_c, s_b, s_w, s_d),collection_id)
+            Task(id, name, Task._resolve_progress(s_c, s_d), Task._resolve_status(s_c, s_b, s_w, s_d),collection_id, CustomFields.get_task_fields(db, id))
             for id, name, s_c, s_b, s_w, s_d, collection_id in
                 db.cursor().execute("""
                 SELECT
@@ -159,3 +185,25 @@ class Agenda:
             else:
                 agenda_list[task_name] = {subtask_id : [subtask_name, subtask_repeat, subtask_due]}
         return agenda_list
+
+
+class CustomFields:
+    """Extra StringField fields"""
+    def __init__(self, id, name, value):
+        self.id = id
+        self.name = name
+        self.value = value
+
+    def get_task_fields(db, task_id):
+        return [
+            CustomFields(id, name, value) for id, name, value in
+            db.cursor().execute("""
+                SELECT id, name, value FROM customfields 
+                WHERE task_id = ?;
+                """, (task_id,)).fetchall()
+                ]
+    def delete(db, id):
+        db.cursor().execute("""
+            DELETE FROM customfields WHERE id = ?
+        """, (id,))
+        db.commit()

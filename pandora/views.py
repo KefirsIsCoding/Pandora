@@ -1,7 +1,7 @@
 from tkinter import *
 from tkinter import ttk
-from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget, AgendaItem, Calendar
-from .consts import Status
+from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget, AgendaItem, Calendar, StringField, ChoiceField, CheckboxField, DateField, CounterField
+from .consts import Status, DateChoices
 
 class AgendaView(ttk.Frame):
 
@@ -112,7 +112,7 @@ class CollectionView(ttk.Frame):
         for w in self.task_list_frame.interior.winfo_children():
             w.destroy()
         for t in tasks:
-            TaskWidget(self.task_list_frame.interior, t.name, t.id, t.progress, t.status).pack(expand=True, fill="x")
+            TaskWidget(self.task_list_frame.interior, t.name, t.id, t.progress, t.status, t.custom_fields).pack(expand=True, fill="x")
 
     def update_subtasks(self, subtasks, task_id):
         filtered_subtasks = [subtask for subtask in subtasks if subtask.task_id == task_id]
@@ -133,8 +133,7 @@ class CollectionView(ttk.Frame):
         t.rowconfigure(2, weight=1)
 
         task_name = StringVar()
-        ttk.Label(t, text="Task name:").grid(column=0, row=1)
-        ttk.Entry(t, textvariable=task_name).grid(column=1, row=1)
+        StringField.create_field(t, "Task name", task_name).grid(column=0, row=0)
         ttk.Button(t, text="Ok", command=lambda: self.callbacks["create_task"](t, task_name.get())).grid(column=2, row=2)
 
     def delete_task_dialog(self, task):
@@ -156,7 +155,6 @@ class CollectionView(ttk.Frame):
         t.title("Edit a task")
         t.columnconfigure(0, weight=1)
         t.columnconfigure(1, weight=1)
-        t.columnconfigure(2, weight=1)
 
         t.rowconfigure(0, weight=1)
         t.rowconfigure(1, weight=1)
@@ -164,9 +162,56 @@ class CollectionView(ttk.Frame):
 
         task_name = StringVar()
         task_name.set(task.name)
-        ttk.Label(t, text="Task name:").grid(column=0, row=1)
-        ttk.Entry(t, textvariable=task_name).grid(column=1, row=1)
-        ttk.Button(t, text="Ok", command=lambda: self.callbacks["edit_task"](t, task_name.get(), task.id)).grid(column=2, row=2)
+        StringField.create_field(t, "Task name", task_name).grid(column=0, row=0)
+        # :(
+        create_field_frame = ttk.Frame(t)
+        create_field_frame.grid(column=0, row=1, sticky=(N,W,E,S))
+        create_field_frame.columnconfigure(0, weight=1)
+        create_field_frame.columnconfigure(1, weight=1)
+        create_field_frame.rowconfigure(0, weight=1)
+
+        custom_fields = {} 
+        # :(((
+        def add_new_custom_field(custom_fields):
+            if len(custom_fields) < 3:
+                task_frame = ttk.Frame(create_field_frame)
+                task_frame.grid(column=0, sticky=(N,W,E,S))
+                name = StringVar()
+                value = StringVar()
+                ttk.Entry(task_frame, textvariable=name).grid(column=0, row=0, sticky=(N,W,E,S))
+                ttk.Label(task_frame, text=":").grid(column=1, row=0, sticky=(N,W,E,S))
+                ttk.Entry(task_frame, textvariable=value).grid(column=2, row=0, sticky=(N,W,E,S))
+                import random
+                last_key = random.getrandbits(128)
+                custom_fields[last_key] = {"name" : name, "value" : value}
+                def clear(a, key, b):
+                    a.pop(key)
+                    b.destroy()
+                ttk.Button(task_frame, text="X", command=lambda:clear(custom_fields, last_key, task_frame)).grid(column=3, row=0, sticky=(N,W,E,S))
+
+        ttk.Label(create_field_frame, text="Custom fields (max 3)").grid(column=0, row=0, sticky=(N,W,E,S))
+        ttk.Button(create_field_frame, text="Add", command=lambda: add_new_custom_field(custom_fields)).grid(column=1, row=0, sticky=(N,W,E,S))
+
+        for f in task.custom_fields:
+            task_frame = ttk.Frame(create_field_frame)
+            task_frame.grid(column=0, sticky=(N,W,E,S))
+            name = StringVar()
+            name.set(f.name)
+            value = StringVar()
+            value.set(f.value)
+            ttk.Entry(task_frame, textvariable=name).grid(column=0, row=0, sticky=(N,W,E,S))
+            ttk.Label(task_frame, text=":").grid(column=1, row=0, sticky=(N,W,E,S))
+            ttk.Entry(task_frame, textvariable=value).grid(column=2, row=0, sticky=(N,W,E,S))
+            import random
+            last_key = random.getrandbits(128)
+            custom_fields[last_key] = {"id" : f.id, "name" : name, "value" : value}
+            def clear(a, key, b):
+                a.pop(key)
+                b.destroy()
+
+            ttk.Button(task_frame, text="X", command=lambda last_key=last_key, task_frame=task_frame:clear(custom_fields, last_key, task_frame)).grid(column=3, row=0, sticky=(N,W,E,S))
+
+        ttk.Button(t, text="Ok", command=lambda: self.callbacks["edit_task"](t, task_name.get(), custom_fields, task.id)).grid(column=1, row=2)
         
 
     def create_subtask_dialog(self, task):
@@ -227,8 +272,15 @@ class CollectionView(ttk.Frame):
         subtask_name = StringVar()
         subtask_name.set(subtask.name)
 
-        subtask_progress = StringVar()
-        subtask_progress.set(subtask.progress)
+        subtask_p_start = IntVar()
+        subtask_p_end = IntVar()
+        if "/" in subtask.progress:
+            vals = subtask.progress.split("/")
+            subtask_p_start.set(vals[0])
+            subtask_p_end.set(vals[1])
+        else:
+            subtask_p_start.set(0)
+            subtask_p_end.set(0)
 
         subtask_status = StringVar()
         subtask_status.set(subtask.status)
@@ -236,45 +288,24 @@ class CollectionView(ttk.Frame):
         subtask_rep = BooleanVar()
         subtask_rep.set(subtask.repeat)
 
-        combox_vals = ["Any", "Weekends", "Weekdays", "Monthly", "Specific Date"]
         subtask_date_type = StringVar()
         subtask_date_specific = StringVar()
-        from datetime import datetime, timedelta
-        dates = [x.isoformat()[0:10] for x in (datetime.now() + timedelta(days=i) for i in range(365))]
-
-
-        def change_box(s_type, date_w):
-            if s_type == "Specific Date":
-                date_w.configure(state="enabled")
-            else:
-                date_w.configure(state="disabled")
-
-        ttk.Label(t, text="Subtask name:").grid(column=0, row=1)
-        ttk.Entry(t, textvariable=subtask_name).grid(column=1, row=1)
-        ttk.Label(t, text="Subtask progress:").grid(column=0, row=2)
-        ttk.Entry(t, textvariable=subtask_progress).grid(column=1, row=2)
-        ttk.Label(t, text="Subtask status:").grid(column=0, row=3)
-        ttk.Combobox(t, textvariable=subtask_status, values=[v.name for v in Status]).grid(column=1, row=3)
-        ttk.Label(t, text="Repeatable:").grid(column=0, row=4)
-        ttk.Checkbutton(t, variable=subtask_rep, onvalue=True, offvalue=False).grid(column=1, row=4)
-        ttk.Label(t, text="Due date:").grid(column=0, row=5)
-        d_type_select = ttk.Combobox(t, textvariable=subtask_date_type, values=combox_vals)
-        d_type_select.grid(column=1, row=5)
-        date_select = ttk.Combobox(t, textvariable=subtask_date_specific, values=dates)
-        date_select.grid(column=1, row=6)
-        d_type_select.bind("<<ComboboxSelected>>", lambda x: change_box(subtask_date_type.get(), date_select))
-        if subtask.date in combox_vals:
+        if subtask.date in [v.value for v in DateChoices]:
             subtask_date_type.set(subtask.date)
-            date_select.configure(state="disabled")
         else:
             subtask_date_type.set("Specific Date")
             subtask_date_specific.set(subtask.date)
 
+        StringField.create_field(t, "Title", subtask_name).grid(column=0, row=1, sticky=W)
+        CounterField.create_field(t, "Progress", subtask_p_start, subtask_p_end).grid(column=0, row=2, sticky=W)
+        ChoiceField.create_field(t, "Status", subtask_status, [v.name for v in Status]).grid(column=0, row=3, sticky=W)
+        CheckboxField.create_field(t, "Repeatable", subtask_rep).grid(column=0, row=4, sticky=W)
+        DateField.create_field(t, "Due", subtask_date_type, subtask_date_specific, [v.value for v in DateChoices]).grid(column=0, row=5, sticky=W)
         ttk.Button(t, text="Ok", command=lambda: self.callbacks["edit_subtask"](
             t,
             subtask.id,
             subtask_name.get(),
-            subtask_progress.get(),
+            f"{subtask_p_start.get()}/{subtask_p_end.get()}",
             subtask_status.get(),
             subtask_rep.get(),
             subtask_date_type.get() if subtask_date_type.get() != "Specific Date" else subtask_date_specific.get()

@@ -3,7 +3,8 @@ import tkinter.ttk as ttk
 from tkinter.constants import *
 from datetime import datetime, timedelta
 from calendar import monthrange
-from .consts import WeekDays
+from .consts import WeekDays, Status, DateChoices
+from abc import ABC, abstractmethod
 
 # Pirated from: https://stackoverflow.com/questions/16188420/tkinter-scrollbar-for-frame
 class VerticalScrolledFrame(ttk.Frame):
@@ -92,6 +93,7 @@ class SubTaskWidget(ttk.Frame):
         self["borderwidth"] = 2
         self["relief"] = "raised"
 
+        # Field columns
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=5)
         self.columnconfigure(1, weight=1)
@@ -102,10 +104,16 @@ class SubTaskWidget(ttk.Frame):
         self.columnconfigure(6, weight=1)
 
         ttk.Label(self, text=f"Title: {name}").grid(column=0, row=0, sticky=(N,W,E,S))
-        ttk.Label(self, text=f"Progress: {progress}").grid(column=1, row=0, sticky=(N,W,E,S))
-        ttk.Label(self, text=f"Status: {status}").grid(column=2, row=0, sticky=(N,W,E,S))
-        ttk.Label(self, text=f"Repeatable: {bool(repeat)}").grid(column=3, row=0, sticky=(N,W,E,S))
-        ttk.Label(self, text=f"Due: {date}").grid(column=4, row=0, sticky=(N,W,E,S))
+        self.title_f = StringField(self, "Title", name)
+        self.title_f.grid(column=0, row=0, sticky=(N,W,E,S))
+        self.progress_f = CounterField(self, "Progress", progress)
+        self.progress_f.grid(column=1, row=0, sticky=(N,W,E,S))
+        self.status_f = ChoiceField(self, "Status", status, [v.name for v in Status])
+        self.status_f.grid(column=2, row=0, sticky=(N,W,E,S))
+        self.repeat_f = CheckboxField(self, "Repeatable", repeat)
+        self.repeat_f.grid(column=3, row=0, sticky=(N,W,E,S))
+        self.date_f = DateField(self, "Due", date, [v.value for v in DateChoices])
+        self.date_f.grid(column=4, row=0, sticky=(N,W,E,S))
 
         self.edit_bttn = ttk.Button(self, text="Edit", command=self.edit_subtask)
         self.edit_bttn.grid(column=5,row=0, sticky=(N,W,E,S))
@@ -124,20 +132,20 @@ class SubTaskWidget(ttk.Frame):
 
 
 class TaskWidget(ttk.Frame):
-    def __init__(self, parent, name, id, progress, status):
+    def __init__(self, parent, name, id, status, progress, custom_fields, image=None, notes=None, linked_task=None):
         super().__init__(parent)
-        
         self.id = id
         self.name = name
         self.expanded = False
         self.subtasks = []
-
-
+        self.custom_fields = custom_fields
+        custom_len = len(self.custom_fields)
         # Fix this res later
         self.c_view = self.master.master.master.master.master
 
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
+        ## Field columns
         self.columnconfigure(0, weight=5)
         self.columnconfigure(1, weight=1)
         self.columnconfigure(2, weight=1)
@@ -145,19 +153,25 @@ class TaskWidget(ttk.Frame):
         self.columnconfigure(4, weight=1)
         self.columnconfigure(5, weight=1)
         self.columnconfigure(6, weight=1)
+        self.columnconfigure(7, weight=1)
+        self.columnconfigure(8, weight=1)
+        self.columnconfigure(9, weight=1)
         self["borderwidth"] = 2
         self["relief"] = "raised"
-        ttk.Label(self, text=f"Title: {name}").grid(column=0, row=0, sticky=(N,W,E,S))
-        ttk.Label(self, text=f"Progress: {progress}").grid(column=1, row=0, sticky=(N,W,E,S))
-        ttk.Label(self, text=f"Status: {status}").grid(column=2, row=0, sticky=(N,W,E,S))
+        self.title = StringField(self, "Title", name)
+        self.title.grid(column=0, row=0, sticky=(N,W,E,S))
+        for idx, f in enumerate(custom_fields):
+            StringField(self, f.name, f.value).grid(column=idx+1, row=0, sticky=(N,W,E,S))
+        CounterField(self, "Progress", progress).grid(column=custom_len+1, row=0, sticky=(N,W,E,S))
+        ChoiceField(self, "Status", status, [v.name for v in Status]).grid(column=custom_len+2, row=0, sticky=(N,W,E,S))
         self.edit_bttn = ttk.Button(self, text="Edit", command=self.edit_task)
-        self.edit_bttn.grid(column=3,row=0, sticky=(N,W,E,S))
+        self.edit_bttn.grid(column=custom_len+3,row=0, sticky=(N,W,E,S))
         self.del_bttn = ttk.Button(self, text="X", command=self.delete_task)
-        self.del_bttn.grid(column=4, row=0, sticky=(N,W,E,S))
+        self.del_bttn.grid(column=custom_len+4, row=0, sticky=(N,W,E,S))
         self.new_bttn = ttk.Button(self, text="+", command=self.create_subtask)
-        self.new_bttn.grid(column=5, row=0, sticky=(N,W,E,S))
+        self.new_bttn.grid(column=custom_len+5, row=0, sticky=(N,W,E,S))
         self.open_bttn = ttk.Button(self, text=">", command=self.open_task_dropdown)
-        self.open_bttn.grid(column=6, row=0, sticky=(N,W,E,S))
+        self.open_bttn.grid(column=custom_len+6, row=0, sticky=(N,W,E,S))
 
         self.subtask_window = VerticalScrolledFrame(self)
         self.refresh_subtask_list()
@@ -341,3 +355,174 @@ class Calendar(ttk.Frame):
         for days in WeekDays:
             if self.first_day.strftime("%A") == days.value[1]:
                 return days.value[0]
+
+class CustomField(ABC):
+    """
+    Field widgets that show up on Tasks and Subtasks
+
+    All fields should configure their own layout within their own label
+    They should also provide a callable way to edit them
+    """
+    def __init__(self, parent, name, value):
+        self.name = name
+        self.value = value
+
+    @abstractmethod
+    def create_field():
+        pass
+
+class StringField(ttk.Frame, CustomField):
+    def __init__(self, parent, name, value):
+        super().__init__(parent)
+        self.name = name
+        self.value = value
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.label = ttk.Label(self, text=f"{name}: {value}")
+        self.label.grid(column=0, row=0, sticky=(N,W,E,S))
+
+    def create_field(root, name, value):
+        edit_field = ttk.Frame(root)
+        edit_field.rowconfigure(0, weight=1)
+        edit_field.columnconfigure(0, weight=1)
+        edit_field.columnconfigure(1, weight=1)
+        description = ttk.Label(edit_field, text=f"{name}: ")
+        description.grid(column=0, row=0, sticky=(N,W,E,S))
+        value_field = ttk.Entry(edit_field, textvariable=value)
+        value_field.grid(column=1, row=0, sticky=(N,W,E,S))
+        return edit_field
+
+class CounterField(ttk.Frame, CustomField):
+    def __init__(self, parent, name, value):
+        super().__init__(parent)
+        self.name = name
+        self.value = (value.split("/")[0], value.split("/")[1]) if "/" in value else (0,0)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        ttk.Label(self, text=f"{name}: {self.value[0]}/{self.value[1]}").grid(column=0, row=0, sticky=(N,W,E,S))
+
+    def create_field(root, name, val_start, val_end):
+        edit_field = ttk.Frame(root)
+        edit_field.rowconfigure(0, weight=1)
+        edit_field.columnconfigure(0, weight=1)
+        edit_field.columnconfigure(1, weight=1)
+        description = ttk.Label(edit_field, text=f"{name}: ")
+        description.grid(column=0, row=0, sticky=(N,W,E,S))
+        val_field = ttk.Frame(edit_field)
+        val_field.columnconfigure(0, weight=1)
+        val_field.rowconfigure(0, weight=1)
+        val_field.grid(column=1, row=0, sticky=(N,W,E,S))
+        val_start_field = ttk.Entry(val_field, textvariable=val_start)
+        val_start_field.grid(column=0, row=0, sticky=(N,W,E,S))
+        val_split_field = ttk.Label(val_field, text="/")
+        val_split_field.grid(column=1, row=0, sticky=(N,W,E,S))
+        val_end_field = ttk.Entry(val_field, textvariable=val_end)
+        val_end_field.grid(column=2, row=0, sticky=(N,W,E,S))
+        return edit_field
+
+
+class ChoiceField(ttk.Frame, CustomField):
+    def __init__(self, parent, name, value, choices):
+        super().__init__(parent)
+        self.name = name
+        self.value = value
+        self.choices = choices
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.label = ttk.Label(self, text=f"{name}: {value}")
+        self.label.grid(column=0, row=0, sticky=(N,W,E,S))
+
+    def create_field(root, name, value, choices):
+        edit_field = ttk.Frame(root)
+        edit_field.rowconfigure(0, weight=1)
+        edit_field.columnconfigure(0, weight=1)
+        edit_field.columnconfigure(1, weight=1)
+        description = ttk.Label(edit_field, text=f"{name}: ")
+        description.grid(column=0, row=0, sticky=(N,W,E,S))
+        choices = ttk.Combobox(edit_field, textvariable=value, values=choices)
+        choices.grid(column=1, row=0, sticky=(N,W,E,S))
+        return edit_field
+
+class CheckboxField(ttk.Frame, CustomField):
+    def __init__(self, parent, name, value):
+        super().__init__(parent)
+        self.name = name
+        self.value = value
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.label = ttk.Label(self, text=f"{name}: {bool(value)}")
+        self.label.grid(column=0, row=0, sticky=(N,W,E,S))
+
+    def create_field(root, name, value):
+        edit_field = ttk.Frame(root)
+        edit_field.rowconfigure(0, weight=1)
+        edit_field.columnconfigure(0, weight=1)
+        edit_field.columnconfigure(1, weight=1)
+        description = ttk.Label(edit_field, text=f"{name}: ")
+        description.grid(column=0, row=0, sticky=(N,W,E,S))
+        choices = ttk.Checkbutton(edit_field, variable=value, onvalue=True, offvalue=False)
+        choices.grid(column=1, row=0, sticky=(N,W,E,S))
+        return edit_field
+
+
+class DateField(ttk.Frame, CustomField):
+    def __init__(self, parent, name, value, choices):
+        super().__init__(parent)
+        self.name = name
+        self.value = value
+        self.choices = choices
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.label = ttk.Label(self, text=f"{name}: {value}")
+        self.label.grid(column=0, row=0, sticky=(N,W,E,S))
+
+    def create_field(root, name, val_type, val_date, choices):
+        edit_field = ttk.Frame(root)
+        edit_field.rowconfigure(0, weight=1)
+        edit_field.columnconfigure(0, weight=1)
+        edit_field.columnconfigure(1, weight=1)
+        description = ttk.Label(edit_field, text=f"{name}: ")
+        description.grid(column=0, row=0, sticky=(N,W,E,S))
+        input_field = ttk.Frame(edit_field)
+        input_field.grid(column=1, row=0, sticky=(N,W,E,S))
+
+        date_type_select = ttk.Combobox(input_field, textvariable=val_type, values=choices)
+        date_type_select.grid(column=0, row=0, sticky=(N,W,E,S))
+
+        def eval_date_field(val_type, date_box):
+            if val_type.get() == "Specific Date":
+                date_box.configure(state="enabled")
+            else:
+                date_box.configure(state="disabled")
+
+        from datetime import datetime, timedelta
+        dates = [x.isoformat()[0:10] for x in (datetime.now() + timedelta(days=i) for i in range(365))]
+        specific_date_select = ttk.Combobox(input_field, textvariable=val_date, values=dates)
+        specific_date_select.grid(column=0, row=1, sticky=(N,W,E,S))
+        date_type_select.bind("<<ComboboxSelected>>", lambda x: eval_date_field(val_type, specific_date_select))
+        return edit_field
+
+                              
+
+
+class ImageField(ttk.Frame, CustomField):
+    def __init__(self, value):
+        pass
+    def edit_field(value):
+        pass
+
+class NoteField(ttk.Frame, CustomField):
+    def __init__(self, value):
+        pass
+
+    def create_field(value):
+        
+        pass
+
+class TasklinkField(ttk.Frame, CustomField):
+    def __init__(self, value):
+        pass
+
+    def create_field(value):
+        """ Dropdown list of all tasks?"""
+        pass

@@ -5,6 +5,13 @@ class Status(Enum):
     WIP = 2
     DONE = 3
 
+class DateChoices(Enum):
+    ANY = "Any"
+    WEEKENDS = "Weekends"
+    WEEKDAYS = "Weekdays"
+    MONTHLY = "Monthly"
+    SPECIFIC_DATE = "Specific Date"
+
 class WeekDays(Enum):
     MONDAY = 0, "Monday"
     TUESDAY = 1, "Tuesday"
@@ -13,4 +20,5 @@ class WeekDays(Enum):
     FRIDAY = 4, "Friday"
     SATURDAY = 5, "Saturday"
     SUNDAY = 6, "Sunday"
+
 

@@ -43,6 +43,18 @@ class SqliteDb:
             """
         )
         con.commit()
+        cursor.execute("""
+            CREATE TABLE customfields
+            (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                value TEXT,
+                task_id INT,
+                FOREIGN KEY (task_id) REFERENCES task (id) ON DELETE CASCADE
+            );
+            """
+        )
+        con.commit()
         # Enables foreign key contraints (On DELETE)
         con.execute("PRAGMA foreign_keys = 1")
         con.commit()
