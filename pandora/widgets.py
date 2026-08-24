@@ -518,28 +518,45 @@ class ImageField(ttk.Frame, CustomField):
         super().__init__(parent)
         self.path = path 
         image = Image.open(self.path)
-        image = image.resize((100, 100), Image.LANCZOS)
+        small_image = image.resize((100, 100), Image.LANCZOS)
         photo = ImageTk.PhotoImage(image)
+        small_photo = ImageTk.PhotoImage(small_image)
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
-        label = ttk.Label(self, image=photo)
+        label = ttk.Label(self, image=small_photo)
+        label.bind("<Button-1>", lambda x: self.open_large_image(photo))
+
         label.photo = photo
         label.grid()
+        label.small_photo = small_photo
+
+    def open_large_image(self, photo):
+        t = tk.Toplevel(self)
+        t.title("Image")
+        ttk.Label(t, image=photo).grid()
+
 
     def create_field(root, value):
         edit_field = ttk.Frame(root)
         edit_field.rowconfigure(0, weight=1)
         edit_field.columnconfigure(0, weight=1)
         edit_field.columnconfigure(1, weight=1)
-        description = ttk.Label(edit_field, text=f"Select image: ")
+        description = ttk.Label(edit_field, text=f"Current image: {value.get()}")
         description.grid(column=0, row=0, sticky=(N,W,E,S))
         def read_file():
             f = fd.askopenfile()
             filename = f.name.split("/")[-1]
             if filename.endswith(".png") or filename.endswith(".jpg"):
                 value.set(f.name)
+                description.configure(text=f"Current image: {value.get()}")
+        def clear_selected():
+            value.set("")
+            description.configure(text=f"Current image: {value.get()}")
+
         add_btn = ttk.Button(edit_field, text="+", command=read_file)
         add_btn.grid(column=1, row=0, sticky=(N,W,E,S))
+        remove_btn = ttk.Button(edit_field, text="x", command=clear_selected)
+        remove_btn.grid(column=2, row=0, sticky=(N,W,E,S))
         return edit_field
 
 class NoteField(ttk.Frame, CustomField):
