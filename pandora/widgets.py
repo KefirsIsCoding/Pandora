@@ -1,10 +1,12 @@
 import tkinter as tk
 import tkinter.ttk as ttk
+from tkinter import filedialog as fd
 from tkinter.constants import *
 from datetime import datetime, timedelta
 from calendar import monthrange
 from .consts import WeekDays, Status, DateChoices
 from abc import ABC, abstractmethod
+from PIL import Image, ImageTk
 
 # Pirated from: https://stackoverflow.com/questions/16188420/tkinter-scrollbar-for-frame
 class VerticalScrolledFrame(ttk.Frame):
@@ -132,13 +134,14 @@ class SubTaskWidget(ttk.Frame):
 
 
 class TaskWidget(ttk.Frame):
-    def __init__(self, parent, name, id, status, progress, custom_fields, image=None, notes=None, linked_task=None):
+    def __init__(self, parent, name, id, status, progress, custom_fields, image, notes=None, linked_task=None):
         super().__init__(parent)
         self.id = id
         self.name = name
         self.expanded = False
         self.subtasks = []
         self.custom_fields = custom_fields
+        self.image_path = image
         custom_len = len(self.custom_fields)
         # Fix this res later
         self.c_view = self.master.master.master.master.master
@@ -146,7 +149,7 @@ class TaskWidget(ttk.Frame):
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
         ## Field columns
-        self.columnconfigure(0, weight=5)
+        self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
         self.columnconfigure(2, weight=1)
         self.columnconfigure(3, weight=1)
@@ -156,22 +159,27 @@ class TaskWidget(ttk.Frame):
         self.columnconfigure(7, weight=1)
         self.columnconfigure(8, weight=1)
         self.columnconfigure(9, weight=1)
+        self.columnconfigure(10, weight=1)
+        self.columnconfigure(11, weight=1)
         self["borderwidth"] = 2
         self["relief"] = "raised"
+        if self.image_path:
+            self.image_f = ImageField(self, self.image_path)
+            self.image_f.grid(column=0, row=0, sticky=(W))
         self.title = StringField(self, "Title", name)
-        self.title.grid(column=0, row=0, sticky=(N,W,E,S))
+        self.title.grid(column=1, row=0, sticky=(N,W,E,S))
         for idx, f in enumerate(custom_fields):
             StringField(self, f.name, f.value).grid(column=idx+1, row=0, sticky=(N,W,E,S))
-        CounterField(self, "Progress", progress).grid(column=custom_len+1, row=0, sticky=(N,W,E,S))
-        ChoiceField(self, "Status", status, [v.name for v in Status]).grid(column=custom_len+2, row=0, sticky=(N,W,E,S))
+        CounterField(self, "Progress", progress).grid(column=custom_len+2, row=0, sticky=(N,W,E,S))
+        ChoiceField(self, "Status", status, [v.name for v in Status]).grid(column=custom_len+3, row=0, sticky=(N,W,E,S))
         self.edit_bttn = ttk.Button(self, text="Edit", command=self.edit_task)
-        self.edit_bttn.grid(column=custom_len+3,row=0, sticky=(N,W,E,S))
+        self.edit_bttn.grid(column=custom_len+4,row=0, sticky=(N,W,E,S))
         self.del_bttn = ttk.Button(self, text="X", command=self.delete_task)
-        self.del_bttn.grid(column=custom_len+4, row=0, sticky=(N,W,E,S))
+        self.del_bttn.grid(column=custom_len+6, row=0, sticky=(N,W,E,S))
         self.new_bttn = ttk.Button(self, text="+", command=self.create_subtask)
-        self.new_bttn.grid(column=custom_len+5, row=0, sticky=(N,W,E,S))
+        self.new_bttn.grid(column=custom_len+7, row=0, sticky=(N,W,E,S))
         self.open_bttn = ttk.Button(self, text=">", command=self.open_task_dropdown)
-        self.open_bttn.grid(column=custom_len+6, row=0, sticky=(N,W,E,S))
+        self.open_bttn.grid(column=custom_len+8, row=0, sticky=(N,W,E,S))
 
         self.subtask_window = VerticalScrolledFrame(self)
         self.refresh_subtask_list()
@@ -430,7 +438,7 @@ class ChoiceField(ttk.Frame, CustomField):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
         self.label = ttk.Label(self, text=f"{name}: {value}")
-        self.label.grid(column=0, row=0, sticky=(N,W,E,S))
+        self.label.grid(column=0, row=0, sticky=(W))
 
     def create_field(root, name, value, choices):
         edit_field = ttk.Frame(root)
@@ -506,10 +514,33 @@ class DateField(ttk.Frame, CustomField):
 
 
 class ImageField(ttk.Frame, CustomField):
-    def __init__(self, value):
-        pass
-    def edit_field(value):
-        pass
+    def __init__(self, parent, path):
+        super().__init__(parent)
+        self.path = path 
+        image = Image.open(self.path)
+        image = image.resize((100, 100), Image.LANCZOS)
+        photo = ImageTk.PhotoImage(image)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        label = ttk.Label(self, image=photo)
+        label.photo = photo
+        label.grid()
+
+    def create_field(root, value):
+        edit_field = ttk.Frame(root)
+        edit_field.rowconfigure(0, weight=1)
+        edit_field.columnconfigure(0, weight=1)
+        edit_field.columnconfigure(1, weight=1)
+        description = ttk.Label(edit_field, text=f"Select image: ")
+        description.grid(column=0, row=0, sticky=(N,W,E,S))
+        def read_file():
+            f = fd.askopenfile()
+            filename = f.name.split("/")[-1]
+            if filename.endswith(".png") or filename.endswith(".jpg"):
+                value.set(f.name)
+        add_btn = ttk.Button(edit_field, text="+", command=read_file)
+        add_btn.grid(column=1, row=0, sticky=(N,W,E,S))
+        return edit_field
 
 class NoteField(ttk.Frame, CustomField):
     def __init__(self, value):

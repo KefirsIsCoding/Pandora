@@ -36,9 +36,8 @@ class Pandora:
         self.refresh_collections()
         self.refresh_agendas()
 
-    def edit_task(self, root, name, fields, id):
-        print(fields)
-        Task.edit(self.db, name, id, fields)
+    def edit_task(self, root, name, fields, image, id):
+        Task.edit(self.db, name, id, fields, image)
         root.destroy()
         self.refresh_collections()
         self.refresh_agendas()
@@ -105,7 +104,7 @@ class Pandora:
                 "delete_collection": lambda x,y: self.delete_collection(x,y),
                 "open_collection": lambda x: self.open_collection(x),
                 "create_task" : lambda x,y: self.create_task(x,y),
-                "edit_task": lambda x,y,z,a: self.edit_task(x,y,z,a),
+                "edit_task": lambda x,y,z,a,b: self.edit_task(x,y,z,a,b),
                 "delete_task": lambda x,y: self.delete_task(x,y),
                 "create_subtask": lambda root, name, rep, date, t_id: self.create_subtask(root, name, rep, date, t_id),
                 "edit_subtask":

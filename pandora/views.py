@@ -1,6 +1,6 @@
 from tkinter import *
 from tkinter import ttk
-from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget, AgendaItem, Calendar, StringField, ChoiceField, CheckboxField, DateField, CounterField
+from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget, AgendaItem, Calendar, StringField, ChoiceField, CheckboxField, DateField, CounterField, ImageField
 from .consts import Status, DateChoices
 
 class AgendaView(ttk.Frame):
@@ -112,7 +112,7 @@ class CollectionView(ttk.Frame):
         for w in self.task_list_frame.interior.winfo_children():
             w.destroy()
         for t in tasks:
-            TaskWidget(self.task_list_frame.interior, t.name, t.id, t.progress, t.status, t.custom_fields).pack(expand=True, fill="x")
+            TaskWidget(self.task_list_frame.interior, t.name, t.id, t.progress, t.status, t.custom_fields, t.image_path).pack(expand=True, fill="x")
 
     def update_subtasks(self, subtasks, task_id):
         filtered_subtasks = [subtask for subtask in subtasks if subtask.task_id == task_id]
@@ -159,10 +159,13 @@ class CollectionView(ttk.Frame):
         t.rowconfigure(0, weight=1)
         t.rowconfigure(1, weight=1)
         t.rowconfigure(2, weight=1)
+        t.rowconfigure(3, weight=1)
 
         task_name = StringVar()
         task_name.set(task.name)
         StringField.create_field(t, "Task name", task_name).grid(column=0, row=0)
+        task_image = StringVar()
+        task_image.set(task.image_path)
         # :(
         create_field_frame = ttk.Frame(t)
         create_field_frame.grid(column=0, row=1, sticky=(N,W,E,S))
@@ -210,8 +213,9 @@ class CollectionView(ttk.Frame):
                 b.destroy()
 
             ttk.Button(task_frame, text="X", command=lambda last_key=last_key, task_frame=task_frame:clear(custom_fields, last_key, task_frame)).grid(column=3, row=0, sticky=(N,W,E,S))
-
-        ttk.Button(t, text="Ok", command=lambda: self.callbacks["edit_task"](t, task_name.get(), custom_fields, task.id)).grid(column=1, row=2)
+        
+        ImageField.create_field(t, task_image).grid(column=0, row=2)
+        ttk.Button(t, text="Ok", command=lambda: self.callbacks["edit_task"](t, task_name.get(), custom_fields, task_image.get(), task.id)).grid(column=1, row=3)
         
 
     def create_subtask_dialog(self, task):

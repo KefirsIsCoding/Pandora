@@ -23,6 +23,7 @@ class SqliteDb:
                 id INTEGER PRIMARY KEY,
                 name TEXT, 
                 collection_id INT,
+                image_path TEXT,
                 FOREIGN KEY (collection_id) REFERENCES collection (id) ON DELETE CASCADE
             );
             """
