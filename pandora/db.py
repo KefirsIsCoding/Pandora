@@ -24,7 +24,10 @@ class SqliteDb:
                 name TEXT, 
                 collection_id INT,
                 image_path TEXT,
-                FOREIGN KEY (collection_id) REFERENCES collection (id) ON DELETE CASCADE
+                notes_path TEXT,
+                linked_task INT,
+                FOREIGN KEY (collection_id) REFERENCES collection (id) ON DELETE CASCADE,
+                FOREIGN KEY (linked_task) REFERENCES task (id)
             );
             """
         )

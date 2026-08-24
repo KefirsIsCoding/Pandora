@@ -7,6 +7,7 @@ from calendar import monthrange
 from .consts import WeekDays, Status, DateChoices
 from abc import ABC, abstractmethod
 from PIL import Image, ImageTk
+import os
 
 # Pirated from: https://stackoverflow.com/questions/16188420/tkinter-scrollbar-for-frame
 class VerticalScrolledFrame(ttk.Frame):
@@ -134,7 +135,7 @@ class SubTaskWidget(ttk.Frame):
 
 
 class TaskWidget(ttk.Frame):
-    def __init__(self, parent, name, id, status, progress, custom_fields, image, notes=None, linked_task=None):
+    def __init__(self, parent, name, id, status, progress, custom_fields, image, notes, linked_task):
         super().__init__(parent)
         self.id = id
         self.name = name
@@ -142,6 +143,8 @@ class TaskWidget(ttk.Frame):
         self.subtasks = []
         self.custom_fields = custom_fields
         self.image_path = image
+        self.notes = notes
+        self.linked_task = linked_task
         custom_len = len(self.custom_fields)
         # Fix this res later
         self.c_view = self.master.master.master.master.master
@@ -161,9 +164,11 @@ class TaskWidget(ttk.Frame):
         self.columnconfigure(9, weight=1)
         self.columnconfigure(10, weight=1)
         self.columnconfigure(11, weight=1)
+        self.columnconfigure(12, weight=1)
+        self.columnconfigure(13, weight=1)
         self["borderwidth"] = 2
         self["relief"] = "raised"
-        if self.image_path:
+        if os.path.exists(self.image_path):
             self.image_f = ImageField(self, self.image_path)
             self.image_f.grid(column=0, row=0, sticky=(W))
         self.title = StringField(self, "Title", name)
@@ -172,14 +177,20 @@ class TaskWidget(ttk.Frame):
             StringField(self, f.name, f.value).grid(column=idx+1, row=0, sticky=(N,W,E,S))
         CounterField(self, "Progress", progress).grid(column=custom_len+2, row=0, sticky=(N,W,E,S))
         ChoiceField(self, "Status", status, [v.name for v in Status]).grid(column=custom_len+3, row=0, sticky=(N,W,E,S))
+        if os.path.exists(self.notes):
+            self.notes_f = NoteField(self, self.notes)
+            self.notes_f.grid(column=custom_len+4, row=0, sticky=(N,W,E,S))
+        if self.linked_task:
+            self.link_f = TasklinkField(self, self.linked_task)
+            self.link_f.grid(column=custom_len+5, row=0, sticky=(N,W,E,S))
         self.edit_bttn = ttk.Button(self, text="Edit", command=self.edit_task)
-        self.edit_bttn.grid(column=custom_len+4,row=0, sticky=(N,W,E,S))
+        self.edit_bttn.grid(column=custom_len+6,row=0, sticky=(N,W,E,S))
         self.del_bttn = ttk.Button(self, text="X", command=self.delete_task)
-        self.del_bttn.grid(column=custom_len+6, row=0, sticky=(N,W,E,S))
+        self.del_bttn.grid(column=custom_len+7, row=0, sticky=(N,W,E,S))
         self.new_bttn = ttk.Button(self, text="+", command=self.create_subtask)
-        self.new_bttn.grid(column=custom_len+7, row=0, sticky=(N,W,E,S))
+        self.new_bttn.grid(column=custom_len+8, row=0, sticky=(N,W,E,S))
         self.open_bttn = ttk.Button(self, text=">", command=self.open_task_dropdown)
-        self.open_bttn.grid(column=custom_len+8, row=0, sticky=(N,W,E,S))
+        self.open_bttn.grid(column=custom_len+9, row=0, sticky=(N,W,E,S))
 
         self.subtask_window = VerticalScrolledFrame(self)
         self.refresh_subtask_list()
@@ -560,17 +571,49 @@ class ImageField(ttk.Frame, CustomField):
         return edit_field
 
 class NoteField(ttk.Frame, CustomField):
-    def __init__(self, value):
-        pass
+    def __init__(self, parent, path):
+        super().__init__(parent)
+        self.path = path
+        ttk.Button(self, text="File", command=self.open_text).grid()
 
-    def create_field(value):
-        
-        pass
+    def open_text(self):
+        import subprocess
+        subprocess.run(["kitty", "nvim", self.path])
+
+    def create_field(root, value):
+        edit_field = ttk.Frame(root)
+        edit_field.rowconfigure(0, weight=1)
+        edit_field.columnconfigure(0, weight=1)
+        edit_field.columnconfigure(1, weight=1)
+        description = ttk.Label(edit_field, text=f"Current file: {value.get()}")
+        description.grid(column=0, row=0, sticky=(N,W,E,S))
+        def read_file():
+            f = fd.askopenfile()
+            filename = f.name.split("/")[-1]
+            if filename.endswith(".txt") or filename.endswith(".md"):
+                value.set(f.name)
+                description.configure(text=f"Current file: {value.get()}")
+        def clear_selected():
+            value.set("")
+            description.configure(text=f"Current file: {value.get()}")
+
+        add_btn = ttk.Button(edit_field, text="+", command=read_file)
+        add_btn.grid(column=1, row=0, sticky=(N,W,E,S))
+        remove_btn = ttk.Button(edit_field, text="x", command=clear_selected)
+        remove_btn.grid(column=2, row=0, sticky=(N,W,E,S))
+        return edit_field
 
 class TasklinkField(ttk.Frame, CustomField):
-    def __init__(self, value):
+    def __init__(self, parent, value):
+        super().__init__(parent)
         pass
+        # Jank city incorporated tm
+#        self.base = self.master.master.master.master.master.master.master.master.master
+#        self.tmp_db = self.base.db
+ #       print(self.base)
+ #       self.link = value
+     #   ttk.Button(self, text=self.link, command=lambda:print("o_")).grid()
 
-    def create_field(value):
+    def create_field(root, value,):
         """ Dropdown list of all tasks?"""
         pass

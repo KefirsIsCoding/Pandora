@@ -24,7 +24,7 @@ class Collection:
         ]
 
 class Task:
-    def __init__(self, id, name, status, progress, collection_id, fields, image_path):
+    def __init__(self, id, name, status, progress, collection_id, fields, image_path, notes_path, link):
         self.id = id
         self.name = name
         self.status = status
@@ -32,6 +32,8 @@ class Task:
         self.collection_id = collection_id
         self.custom_fields = fields
         self.image_path = image_path
+        self.notes_path = notes_path
+        self.linked_task = link
 
     def save(db, name, collection):
         db.cursor().execute("""
@@ -44,8 +46,8 @@ class Task:
         db.cursor().execute("DELETE FROM task WHERE id =?", (id,))
         db.commit()
 
-    def edit(db, name, id, fields, image):
-        db.cursor().execute("UPDATE task SET name = ?, image_path = ? WHERE id = ?", (name, image, id))
+    def edit(db, name, id, fields, image, notes, link):
+        db.cursor().execute("UPDATE task SET name = ?, image_path = ?, notes_path = ?, linked_task = ? WHERE id = ?", (name, image, notes, link, id))
         db.commit()
         task_fields = CustomFields.get_task_fields(db, id)
         new_fields = [(x.get("id", None), x.get("name").get(), x.get("value").get()) for x in fields.values()]
@@ -106,8 +108,8 @@ class Task:
         """ o_O"""
 
         return [
-            Task(id, name, Task._resolve_progress(s_c, s_d), Task._resolve_status(s_c, s_b, s_w, s_d),collection_id, CustomFields.get_task_fields(db, id), image)
-            for id, name, s_c, s_b, s_w, s_d, collection_id, image in
+            Task(id, name, Task._resolve_progress(s_c, s_d), Task._resolve_status(s_c, s_b, s_w, s_d),collection_id, CustomFields.get_task_fields(db, id), image, notes, link)
+            for id, name, s_c, s_b, s_w, s_d, collection_id, image, notes, link in
                 db.cursor().execute("""
                 SELECT
                     t.id,
@@ -117,7 +119,9 @@ class Task:
                     Sum(Iif(s.status = 'WIP',1,0)),
                     Sum(Iif(s.status = 'DONE',1,0)),
                     t.collection_id,
-                    t.image_path
+                    t.image_path,
+                    t.notes_path,
+                    t.linked_task
                 FROM task as t
                 LEFT JOIN subtask as s ON s.task_id = t.id
                 WHERE t.collection_id = ?

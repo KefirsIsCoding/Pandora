@@ -1,6 +1,6 @@
 from tkinter import *
 from tkinter import ttk
-from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget, AgendaItem, Calendar, StringField, ChoiceField, CheckboxField, DateField, CounterField, ImageField
+from .widgets import VerticalScrolledFrame, CollectionWidget, TaskWidget, AgendaItem, Calendar, StringField, ChoiceField, CheckboxField, DateField, CounterField, ImageField, NoteField, TasklinkField
 from .consts import Status, DateChoices
 
 class AgendaView(ttk.Frame):
@@ -112,7 +112,7 @@ class CollectionView(ttk.Frame):
         for w in self.task_list_frame.interior.winfo_children():
             w.destroy()
         for t in tasks:
-            TaskWidget(self.task_list_frame.interior, t.name, t.id, t.progress, t.status, t.custom_fields, t.image_path).pack(expand=True, fill="x")
+            TaskWidget(self.task_list_frame.interior, t.name, t.id, t.progress, t.status, t.custom_fields, t.image_path,t.notes_path, t.linked_task).pack(expand=True, fill="x")
 
     def update_subtasks(self, subtasks, task_id):
         filtered_subtasks = [subtask for subtask in subtasks if subtask.task_id == task_id]
@@ -166,6 +166,11 @@ class CollectionView(ttk.Frame):
         StringField.create_field(t, "Task name", task_name).grid(column=0, row=0)
         task_image = StringVar()
         task_image.set(task.image_path)
+        task_note = StringVar()
+        task_note.set(task.notes)
+        task_link = StringVar()
+        task_link.set(task.linked_task)
+
         # :(
         create_field_frame = ttk.Frame(t)
         create_field_frame.grid(column=0, row=1, sticky=(N,W,E,S))
@@ -215,7 +220,9 @@ class CollectionView(ttk.Frame):
             ttk.Button(task_frame, text="X", command=lambda last_key=last_key, task_frame=task_frame:clear(custom_fields, last_key, task_frame)).grid(column=3, row=0, sticky=(N,W,E,S))
         
         ImageField.create_field(t, task_image).grid(column=0, row=2)
-        ttk.Button(t, text="Ok", command=lambda: self.callbacks["edit_task"](t, task_name.get(), custom_fields, task_image.get(), task.id)).grid(column=1, row=3)
+        NoteField.create_field(t, task_note).grid(column=0, row=3)
+
+        ttk.Button(t, text="Ok", command=lambda: self.callbacks["edit_task"](t, task_name.get(), custom_fields, task_image.get(), task_note.get(), task_link.get(), task.id)).grid(column=1, row=4)
         
 
     def create_subtask_dialog(self, task):
